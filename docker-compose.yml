@@ -1,0 +1,41 @@
+version: "3"
+services:
+  temp-api:
+    container_name: temp-api
+    image: purevert/temp-api:latest
+    volumes:
+      - /sys/class/thermal/thermal_zone0/temp:/sys/class/thermal/thermal_zone0/temp:ro
+    ports:
+      - ${PORT}:${PORT}
+    networks:
+      - revProxy-net
+    restart: unless-stopped
+    build:
+      context: .
+      args:
+        - host=${HOSTNAME}
+        - port=${PORT}
+        - protocol=${PROTOCOL}
+        - interval=${INTERVAL}
+        - base_url=${BASE_URL}
+        - hide_ports=${HIDE_PORTS}
+        - chart_data_points=${CHART_SIZE}
+        - chart_callback=${CHART_REFRESH}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.temp-api.entrypoints=web,websecure"
+      - "traefik.http.routers.temp-api.rule=Host(`${HOSTNAME}`) && PathPrefix(`${BASE_URL}`)"
+      - "traefik.http.routers.temp-api.tls=true"
+      - "traefik.http.routers.temp-api.tls.certresolver=tailsolver"
+      - "traefik.http.routers.temp-api.tls.domains[0].main=${HOSTNAME}"
+    environment:
+      - host=${HOSTNAME}
+      - port=${PORT}
+      - protocol=${PROTOCOL}
+      - interval=${INTERVAL}
+      - base_url=${BASE_URL}
+      - hide_ports=${HIDE_PORTS}
+
+networks:
+  revProxy-net:
+    external: true

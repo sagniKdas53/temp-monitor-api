@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            background-color: rgb(18, 18, 18);
+            color: white;
+            text-align: center;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-size: 10vh;
+        }
+
+        #canvas-container {
+            width: 100%;
+            text-align: center;
+        }
+
+        #tempChart {
+            max-width: 60vw;
+            max-height: 60vh;
+            width: 60vw;
+            height: 60vh;
+            background-color: rgba(0, 0, 0, 0);
+            display: block;
+            margin: 0 auto;
+        }
+
+        div.content.item {
+            align-items: center;
+            align-content: center;
+        }
+    </style>
+    <!--<script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>-->
+    <script defer src="/temp/chart.js"></script>
+</head>
+
+<body>
+    <div class="content">
+        <div class="item">
+            Temperature:<span id="value"> </span>°C
+        </div>
+        <div class="canvas-container">
+            <canvas id="tempChart">Your browser doesn't support canvas</canvas>
+        </div>
+    </div>
+</body>
+
+</html>
