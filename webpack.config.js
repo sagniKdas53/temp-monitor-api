@@ -14,14 +14,12 @@ if (process.env.hide_ports) url = `${protocol}://${host}${url_base}`;
 else url = `${protocol}://${host}:${port}${url_base}`;
 
 module.exports = {
-  entry: './chart.js',
-  output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'dist')
+  entry: {
+    chart: './chart.js',
+    getemp: './getemp.js'
   },
-  entry: './getemp.js',
   output: {
-    filename: 'getemp.js',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist')
   },
   module: {

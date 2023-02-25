@@ -10,14 +10,15 @@ const max_retries = process.env.max_retries || 9;
 var url, retries = 0, mem_retries = 0;
 if (process.env.hide_ports) { url = `${protocol}://${host}${url_base}`; }
 else { url = `${protocol}://${host}:${port}${url_base}`; };
-
+if (__dirname == '/')
+    __dirname = '';
 const json_header = {
     "Access-Control-Allow-Origin": "*",
     "Content-Type": "application/json; charset=utf-8"
 },
     javascript_t = "text/javascript; charset=utf-8",
     staticAssets = {
-        "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/bundle.js"), type: javascript_t },
+        "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: javascript_t },
         "/getemp.js": { obj: fs.readFileSync(__dirname + "/dist/getemp.js"), type: javascript_t },
         "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
         "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" }

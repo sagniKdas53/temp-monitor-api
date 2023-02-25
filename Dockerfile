@@ -11,7 +11,7 @@ ARG chart_callback
 
 WORKDIR /
 
-COPY index.js chart.js test.html package.json webpack.config.js /
+COPY index.js chart.js test.html package.json webpack.config.js getemp.js favicon.ico /
 
 RUN npm install && \
     npx webpack --mode production && \
@@ -20,3 +20,4 @@ RUN npm install && \
 EXPOSE 64567
 
 CMD [ "node", "index.js" ]
+# ["tail" , "-f", "/dev/null"]

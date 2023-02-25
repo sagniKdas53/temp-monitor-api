@@ -13,6 +13,24 @@ const data = {
     ]
 };
 
+const memdata = {
+    labels: [
+        'Available',
+        'Free',
+        'Used'
+    ],
+    datasets: [{
+        label: 'Memory',
+        data: [],
+        backgroundColor: [
+            'rgb(219, 120, 252)',
+            'rgb(92, 133, 247)',
+            'rgb(65, 239, 144)'
+        ],
+        hoverOffset: 2
+    }]
+};
+
 const config = {
     type: 'line',
     data: data,
@@ -37,7 +55,13 @@ const config = {
     }
 };
 
+const memconfig = {
+    type: 'doughnut',
+    data: memdata,
+};
+
 const chart = new Chart(document.getElementById('tempChart'), config);
+const memchart = new Chart(document.getElementById('memChart'), memconfig);
 
 function graphTemp() {
     fetch(__URL__)
@@ -57,6 +81,18 @@ function graphTemp() {
         });
 };
 
+
+function graphMem() {
+    fetch(__URL__ + '/meminfo')
+        .then(res => res.json())
+        .then(mem => {
+            memdata.datasets[0].data = [mem.MemAvailable, mem.MemFree, mem.MemTotal - (mem.MemAvailable + mem.MemFree)];
+            memchart.update();
+        });
+};
+
 graphTemp();
+graphMem();
 
 setInterval(graphTemp, __INTERVAL__);
+setInterval(graphMem, __INTERVAL__);
