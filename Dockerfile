@@ -14,7 +14,8 @@ WORKDIR /
 COPY index.js chart.js test.html package.json \
     webpack.config.js memchart.js favicon.ico style.css /
 
-RUN npm install && \
+RUN sed  -i 's%base_url%${base_url}%' test.html && \
+    npm install && \
     npx webpack --mode production && \
     rm -rf node_modules/
 
