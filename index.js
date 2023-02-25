@@ -1,15 +1,12 @@
 const http = require("http");
 const fs = require("fs");
-var buffer = new Buffer.alloc(6);
 
-// For normal process
-const call_back = process.env.interval || 999;
 // Essentials
 const protocol = process.env.protocol || "http";
 const host = process.env.host || "localhost";
 const port = process.env.port || 64567;
 const url_base = process.env.base_url || "/temp";
-var url, temp_fd;
+var url, retries = 0;
 if (process.env.hide_ports) { url = `${protocol}://${host}${url_base}`; }
 else { url = `${protocol}://${host}:${port}${url_base}`; };
 
@@ -25,27 +22,26 @@ const json_header = {
         "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" }
     };
 
-try {
-    temp_fd = fs.openSync("/sys/class/thermal/thermal_zone0/temp", 'r');
-} catch (error) {
-    console.error(error);
-    process.exit(1);
-}
-
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
         if (get === "" || get === "/") {
-            fs.read(temp_fd, buffer, 0, buffer.length, 0, function (err, bytes) {
+            // reading /proc/meminfo can be use to get information about memory usage
+            fs.readFile("/sys/class/thermal/thermal_zone0/tem", 'utf8', (err, data) => {
                 if (err) {
-                    console.error("Error reading temp_fd: " + err.message);
+                    console.error("Error reading temp: " + err.message);
                     res.writeHead(500, json_header);
                     res.end(JSON.stringify({ temp: "NA" }));
+                    if (retries >= 9) {
+                        process.exit(1);
+                    }
+                    retries++;
                 }
-                if (bytes > 0) {
-                    let data = buffer.slice(0, bytes).toString() / 1000;
+                if (data) {
+                    retries = 0;
+                    //console.log("data:", data, "temp: " + data / 1000);
                     res.writeHead(200, json_header);
-                    res.end(JSON.stringify({ temp: data }));
+                    res.end(JSON.stringify({ temp: data / 1000 }));
                 }
             });
         } else {

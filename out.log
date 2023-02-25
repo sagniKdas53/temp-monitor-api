@@ -1,0 +1,12 @@
+(node:28808) ExperimentalWarning: Watch mode is an experimental feature. This feature could change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
+Error reading temp: ENOENT: no such file or directory, open '/sys/class/thermal/thermal_zone0/tem'
