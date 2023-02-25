@@ -16,7 +16,7 @@ else url = `${protocol}://${host}:${port}${url_base}`;
 module.exports = {
   entry: {
     chart: './chart.js',
-    getemp: './getemp.js'
+    memchart: './memchart.js'
   },
   output: {
     filename: '[name].js',
@@ -27,6 +27,13 @@ module.exports = {
       {
         test: /\.css$/,
         use: ['style-loader', 'css-loader']
+      }, {
+        test: /\.html$/,
+        loader: 'string-replace-loader',
+        options: {
+          search: '$base_url',
+          replace: `${url_base}`,
+        }
       }
     ]
   },
@@ -34,7 +41,8 @@ module.exports = {
     new webpack.DefinePlugin({
       __URL__: JSON.stringify(url),
       __SIZE__: JSON.stringify(chart_data_points),
-      __INTERVAL__: JSON.stringify(chart_callback)
+      __INTERVAL__: JSON.stringify(chart_callback),
+      __BASE__: JSON.stringify(url_base)
     })
   ]
 };

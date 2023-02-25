@@ -12,19 +12,7 @@ body {
   text-align: center;
 }
 
-#tempChart {
-  max-width: 60vw;
-  max-height: 60vh;
-  width: 60vw;
-  height: 60vh;
-  background-color: #00000000;
-  background-color: rgba(0, 0, 0, 0);
-  background-color: transparent;
-  display: block;
-  margin: 0 auto;
-}
-
-#memChart {
+canvas {
   max-width: 60vw;
   max-height: 60vh;
   width: 60vw;

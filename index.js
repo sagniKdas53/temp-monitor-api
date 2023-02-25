@@ -19,12 +19,12 @@ const json_header = {
     javascript_t = "text/javascript; charset=utf-8",
     staticAssets = {
         "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: javascript_t },
-        "/getemp.js": { obj: fs.readFileSync(__dirname + "/dist/getemp.js"), type: javascript_t },
         "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
-        "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" }
+        "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
+        "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
     };
 
-function convertToJSON(input) {
+function memToJSON(input) {
     const lines = input.trim().split('\n');
     const result = {};
 
@@ -58,7 +58,6 @@ http.createServer((req, res) => {
                 }
             });
         } else if (get === "/meminfo") {
-            // reading /proc/meminfo can be use to get information about memory usage
             fs.readFile("/proc/meminfo", 'utf8', (err, data) => {
                 if (err) {
                     console.error("Error reading temp: " + err.message);
@@ -72,12 +71,10 @@ http.createServer((req, res) => {
                 if (data) {
                     mem_retries = 0;
                     res.writeHead(200, json_header);
-                    res.end(convertToJSON(data));
+                    res.end(memToJSON(data));
                 }
             });
-        }
-
-        else {
+        } else {
             try {
                 res.writeHead(200, {
                     "Access-Control-Allow-Origin": "*",

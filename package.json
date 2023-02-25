@@ -9,7 +9,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "chart.js": "^4.2.1"
+    "chart.js": "^4.2.1",
+    "string-replace-loader": "^3.1.0"
   },
   "devDependencies": {
     "css-loader": "^6.7.3",
