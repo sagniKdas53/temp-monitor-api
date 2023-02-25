@@ -17,12 +17,26 @@ body {
   max-height: 60vh;
   width: 60vw;
   height: 60vh;
+  background-color: #00000000;
   background-color: rgba(0, 0, 0, 0);
+  background-color: transparent;
   display: block;
   margin: 0 auto;
 }
 
-div.content.item {
+#memChart {
+  max-width: 60vw;
+  max-height: 60vh;
+  width: 60vw;
+  height: 60vh;
+  background-color: #00000000;
+  background-color: rgba(0, 0, 0, 0);
+  background-color: transparent;
+  display: block;
+  margin: 0 auto;
+}
+
+.content.item {
   align-items: center;
   align-content: center;
 }

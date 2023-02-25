@@ -1,5 +1,5 @@
 import Chart from 'chart.js/auto';
-// My code
+// Temperature graph
 const data = {
     labels: [],
     datasets: [
@@ -11,24 +11,6 @@ const data = {
             tension: 0.1
         }
     ]
-};
-
-const memdata = {
-    labels: [
-        'Available',
-        'Free',
-        'Used'
-    ],
-    datasets: [{
-        label: 'Memory',
-        data: [],
-        backgroundColor: [
-            'rgb(219, 120, 252)',
-            'rgb(92, 133, 247)',
-            'rgb(65, 239, 144)'
-        ],
-        hoverOffset: 2
-    }]
 };
 
 const config = {
@@ -55,13 +37,7 @@ const config = {
     }
 };
 
-const memconfig = {
-    type: 'doughnut',
-    data: memdata,
-};
-
 const chart = new Chart(document.getElementById('tempChart'), config);
-const memchart = new Chart(document.getElementById('memChart'), memconfig);
 
 function graphTemp() {
     fetch(__URL__)
@@ -81,6 +57,35 @@ function graphTemp() {
         });
 };
 
+graphTemp();
+
+setInterval(graphTemp, __INTERVAL__);
+
+// Memory graph
+const memdata = {
+    labels: [
+        'Available',
+        'Free',
+        'Used'
+    ],
+    datasets: [{
+        label: 'Memory',
+        data: [],
+        backgroundColor: [
+            'rgb(219, 120, 252)',
+            'rgb(92, 133, 247)',
+            'rgb(65, 239, 144)'
+        ],
+        hoverOffset: 2
+    }]
+};
+
+const memconfig = {
+    type: 'doughnut',
+    data: memdata,
+};
+
+const memchart = new Chart(document.getElementById('memChart'), memconfig);
 
 function graphMem() {
     fetch(__URL__ + '/meminfo')
@@ -91,8 +96,6 @@ function graphMem() {
         });
 };
 
-graphTemp();
 graphMem();
 
-setInterval(graphTemp, __INTERVAL__);
 setInterval(graphMem, __INTERVAL__);
