@@ -6,7 +6,8 @@ const protocol = process.env.protocol || "http";
 const host = process.env.host || "localhost";
 const port = process.env.port || 64567;
 const url_base = process.env.base_url || "/temp";
-var url, retries = 0;
+const max_retries = process.env.max_retries || 9;
+var url, retries = 0, mem_retries = 0;
 if (process.env.hide_ports) { url = `${protocol}://${host}${url_base}`; }
 else { url = `${protocol}://${host}:${port}${url_base}`; };
 
@@ -22,17 +23,28 @@ const json_header = {
         "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" }
     };
 
+function convertToJSON(input) {
+    const lines = input.trim().split('\n');
+    const result = {};
+
+    for (const line of lines.slice(0, 3)) {
+        const [key, value] = line.trim().split(':');
+        result[key] = value.trim().split(" ")[0] / 10e5;
+    }
+
+    return JSON.stringify(result);
+}
+
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
         if (get === "" || get === "/") {
-            // reading /proc/meminfo can be use to get information about memory usage
-            fs.readFile("/sys/class/thermal/thermal_zone0/tem", 'utf8', (err, data) => {
+            fs.readFile("/sys/class/thermal/thermal_zone0/temp", 'utf8', (err, data) => {
                 if (err) {
                     console.error("Error reading temp: " + err.message);
                     res.writeHead(500, json_header);
                     res.end(JSON.stringify({ temp: "NA" }));
-                    if (retries >= 9) {
+                    if (retries == max_retries) {
                         process.exit(1);
                     }
                     retries++;
@@ -44,7 +56,27 @@ http.createServer((req, res) => {
                     res.end(JSON.stringify({ temp: data / 1000 }));
                 }
             });
-        } else {
+        } else if (get === "/meminfo") {
+            // reading /proc/meminfo can be use to get information about memory usage
+            fs.readFile("/proc/meminfo", 'utf8', (err, data) => {
+                if (err) {
+                    console.error("Error reading temp: " + err.message);
+                    res.writeHead(500, json_header);
+                    res.end(JSON.stringify({ meminfo: "NA" }));
+                    if (mem_retries == max_retries) {
+                        process.exit(1);
+                    }
+                    mem_retries++;
+                }
+                if (data) {
+                    mem_retries = 0;
+                    res.writeHead(200, json_header);
+                    res.end(convertToJSON(data));
+                }
+            });
+        }
+
+        else {
             try {
                 res.writeHead(200, {
                     "Access-Control-Allow-Origin": "*",
