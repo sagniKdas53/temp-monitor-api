@@ -1,0 +1,31 @@
+appConfig:
+  theme: dashy-docs
+  language: en
+  layout: vertical
+  iconSize: large
+pageInfo:
+  title: ""
+  description: ""
+  navLinks: []
+  footerText: ""
+sections:
+  - name: Widgets
+    displayData:
+      sortBy: most-used
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: true
+    widgets:
+      - type: embed
+        options:
+          css: >-
+            .white{color:white; font-weight:bold; font-family:system-ui,
+            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+            Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;}
+          html: >-
+            <div class="white">Temperature:<span id="value">
+            </span>°C</div><br><br><div><canvas id="tempChart"></canvas></div>
+          scriptSrc: https://lenovo-ideapad-320-15ikb.tail9ece4.ts.net/temp/chart.js
+        id: 0_727_embed
+    icon: fas fa-spinner

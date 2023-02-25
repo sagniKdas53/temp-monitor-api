@@ -19,6 +19,7 @@ const json_header = {
     javascript_t = "text/javascript; charset=utf-8",
     staticAssets = {
         "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: javascript_t },
+        "/memchart.js": { obj: fs.readFileSync(__dirname + "/dist/memchart.js"), type: javascript_t },
         "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
         "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
         "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
