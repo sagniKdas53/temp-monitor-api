@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
 const http = require("http");
 const fs = require("fs");
+const { javascript } = require("webpack");
 
 // For normal process
 const call_back = process.env.interval || 999;
@@ -13,32 +14,23 @@ const url_base = process.env.base_url || "/temp";
 if (process.env.hide_ports) url = `${protocol}://${host}${url_base}`;
 else url = `${protocol}://${host}:${port}${url_base}`;
 
-const header = {
-    html: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "text/html; charset=utf-8",
-    },
-    js: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "text/javascript; charset=utf-8",
-    },
-    json_t: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json; charset=utf-8",
-    },
-};
-
-const staticAssets = {
-    "/chart.js": fs.readFileSync(__dirname + "/dist/bundle.js"),
-    "/test": fs.readFileSync(__dirname + "/test.html"),
+const json_t = {
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json; charset=utf-8"
+},
+    javascript_t = "text/javascript; charset=utf-8"
+staticAssets = {
+    "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/bundle.js"), type: javascript_t },
+    "/getemp.js": { obj: fs.readFileSync(__dirname + "/dist/getemp.js"), type: javascript_t },
+    "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
+    "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" }
 };
 
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
-        //console.log(`get(${get})`);
         if (get === "" || get === "/") {
-            res.writeHead(200, header["json_t"]);
+            res.writeHead(200, json_t);
             const temp = spawn("cat", ["/sys/class/thermal/thermal_zone0/temp"]);
             temp.stdout.on("data", function (data) {
                 data = data / 1000;
@@ -51,31 +43,21 @@ http.createServer((req, res) => {
                     temp: "NA"
                 }));
             });
-        }
-        else if (get === "/getemp.js") {
-            res.writeHead(200, header["js"]);
-            res.write(`getTemp = () => {fetch('${url}')
-            .then(res => res.json())
-            .then(temp => document.getElementById('value').innerHTML = temp.temp);`);
-            if (call_back > 1000)
-                res.write(`setTimeout(() => { getTemp(); }, ${call_back});`);
-            res.end(`};getTemp();`);
-        }
-        else if (get === "/chart.js") {
-            res.writeHead(200, header["js"]);
-            res.write(staticAssets[get]);
-            res.end();
-        }
-        else if (get === "/test") {
-            res.writeHead(200, header["html"]);
-            res.write(staticAssets[get]);
-            res.end();
-        }
-        else {
-            res.writeHead(404, header["json_t"]);
-            res.end(JSON.stringify({
-                temp: "NA"
-            }));
+        } else {
+            try {
+                res.writeHead(200, {
+                    "Access-Control-Allow-Origin": "*",
+                    "Content-Type": staticAssets[get].type
+                });
+                res.write(staticAssets[get].obj);
+                res.end();
+            } catch (error) {
+                console.error(error);
+                res.writeHead(404, json_t);
+                res.end(JSON.stringify({
+                    temp: "NA"
+                }));
+            }
         }
     }
     else {

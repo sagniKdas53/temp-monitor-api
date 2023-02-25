@@ -19,6 +19,11 @@ module.exports = {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist')
   },
+  entry: './getemp.js',
+  output: {
+    filename: 'getemp.js',
+    path: path.resolve(__dirname, 'dist')
+  },
   module: {
     rules: [
       {

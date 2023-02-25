@@ -1,0 +1,1 @@
+!function e(){fetch("http://localhost:64567/temp").then((e=>e.json())).then((e=>document.getElementById("value").innerHTML=e.temp)),setTimeout((()=>{e()}),1e4)}();
