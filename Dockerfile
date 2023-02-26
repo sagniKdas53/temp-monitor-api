@@ -12,7 +12,7 @@ ARG chart_callback
 WORKDIR /
 
 COPY index.js chart.js test.html package.json \
-    webpack.config.js memchart.js favicon.ico style.css /
+    webpack.config.js favicon.ico style.css /
 
 RUN npm install && \
     npx webpack --mode production && \

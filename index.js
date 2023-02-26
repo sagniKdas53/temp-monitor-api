@@ -58,23 +58,6 @@ http.createServer((req, res) => {
                     res.end(JSON.stringify({ temp: data / 1000 }));
                 }
             });
-        } else if (get === "/meminfo") {
-            fs.readFile("/proc/meminfo", 'utf8', (err, data) => {
-                if (err) {
-                    console.error("Error reading temp: " + err.message);
-                    res.writeHead(500, json_header);
-                    res.end(JSON.stringify({ meminfo: "NA" }));
-                    if (mem_retries == max_retries) {
-                        process.exit(1);
-                    }
-                    mem_retries++;
-                }
-                if (data) {
-                    mem_retries = 0;
-                    res.writeHead(200, json_header);
-                    res.end(memToJSON(data));
-                }
-            });
         } else {
             try {
                 res.writeHead(200, {

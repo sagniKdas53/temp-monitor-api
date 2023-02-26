@@ -16,7 +16,6 @@ else url = `${protocol}://${host}:${port}${url_base}`;
 module.exports = {
   entry: {
     chart: './chart.js',
-    memchart: './memchart.js'
   },
   output: {
     filename: '[name].js',

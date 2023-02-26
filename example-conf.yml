@@ -26,6 +26,6 @@ sections:
           html: >-
             <div class="white">Temperature:<span id="value">
             </span>°C</div><br><br><div><canvas id="tempChart"></canvas></div>
-          scriptSrc: https://lenovo-ideapad-320-15ikb.tail9ece4.ts.net/temp/chart.js
+          scriptSrc: https://url/base_url/chart.js
         id: 0_727_embed
     icon: fas fa-spinner
