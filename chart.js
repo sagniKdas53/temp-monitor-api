@@ -1,4 +1,10 @@
-import Chart from 'chart.js/auto';
+import { Chart, LinearScale, LineElement, PointElement } from 'chart.js/auto';
+
+Chart.register(
+    LinearScale,
+    PointElement,
+    LineElement,
+);
 // Temperature graph
 const data = {
     labels: [],
