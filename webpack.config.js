@@ -14,11 +14,12 @@ if (process.env.hide_ports) url = `${protocol}://${host}${url_base}`;
 else url = `${protocol}://${host}:${port}${url_base}`;
 
 module.exports = {
+  mode: "production",
   entry: {
     chart: './chart.js',
   },
   output: {
-    filename: '[name].js',
+    filename: 'chart.js',
     path: path.resolve(__dirname, 'dist')
   },
   module: {
@@ -26,13 +27,6 @@ module.exports = {
       {
         test: /\.css$/,
         use: ['style-loader', 'css-loader']
-      }, {
-        test: /\.html$/,
-        loader: 'string-replace-loader',
-        options: {
-          search: '$base_url',
-          replace: `${url_base}`,
-        }
       }
     ]
   },
@@ -40,8 +34,7 @@ module.exports = {
     new webpack.DefinePlugin({
       __URL__: JSON.stringify(url),
       __SIZE__: JSON.stringify(chart_data_points),
-      __INTERVAL__: JSON.stringify(chart_callback),
-      __BASE__: JSON.stringify(url_base)
+      __INTERVAL__: JSON.stringify(chart_callback)
     })
   ]
 };
