@@ -7,7 +7,7 @@ const host = process.env.host || "localhost";
 const port = process.env.port || 64567;
 const url_base = process.env.base_url || "/temp";
 const max_retries = process.env.max_retries || 9;
-var url, retries = 0, mem_retries = 0;
+var url, retries = 0;
 if (process.env.hide_ports) { url = `${protocol}://${host}${url_base}`; }
 else { url = `${protocol}://${host}:${port}${url_base}`; };
 if (__dirname == '/')
@@ -23,18 +23,6 @@ const json_header = {
         "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
         "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
     };
-
-function memToJSON(input) {
-    const lines = input.trim().split('\n');
-    const result = {};
-
-    for (const line of lines.slice(0, 3)) {
-        const [key, value] = line.trim().split(':');
-        result[key] = value.trim().split(" ")[0] / 10e5;
-    }
-
-    return JSON.stringify(result);
-}
 
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
