@@ -43,6 +43,8 @@ http.createServer((req, res) => {
                     //console.log("data:", data, "temp: " + data / 1000);
                     res.writeHead(200, json_header);
                     res.end(JSON.stringify({ temp: data / 1000 }));
+                    // The real change this makes will be visible on raspberry pi
+                    //res.end(JSON.stringify({ temp: (data / 1000).toFixed(2) }));
                 }
             });
         } else {
