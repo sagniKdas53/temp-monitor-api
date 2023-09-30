@@ -3,7 +3,7 @@ const fs = require("fs");
 
 // Essentials
 const protocol = process.env.protocol || "http";
-const host = process.env.host || "localhost";
+const host = process.env.hostname || "ideapad.tail9ece4.ts.net";
 const port = process.env.port || 64567;
 const url_base = process.env.base_url || "/temp";
 const max_retries = process.env.max_retries || 9;
