@@ -37,12 +37,6 @@ services:
       - interval=${INTERVAL}
       - base_url=${BASE_URL}
       - hide_ports=${HIDE_PORTS}
-    healthcheck:
-      test: [ "CMD", "node", "/healthcheck/health-check-min.js" ]
-      interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 60s
 
 networks:
   revProxy-net:

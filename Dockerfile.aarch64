@@ -12,7 +12,7 @@ ARG chart_callback
 WORKDIR /
 
 COPY index.js chart.js test.html package.json \
-    webpack.config.js favicon.ico style.css /
+    webpack.config.js favicon.ico style.css health-check-min.js /
 
 RUN npm install && \
     npx webpack --mode production && \
@@ -22,3 +22,6 @@ RUN npm install && \
 EXPOSE 64567
 
 CMD [ "node", "index.js" ]
+
+HEALTHCHECK --interval=90s --timeout=10s --start-period=10s --retries=3 \
+  CMD node health-check-min.js || exit 1

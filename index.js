@@ -28,7 +28,7 @@ const json_header = {
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
-        console.log(get);
+        //console.log(get);
         if (get === "" || get === "/") {
             fs.readFile("/sys/class/thermal/thermal_zone0/temp", 'utf8', (err, data) => {
                 if (err) {
