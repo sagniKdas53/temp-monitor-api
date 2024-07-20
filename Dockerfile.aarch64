@@ -16,7 +16,8 @@ COPY index.js chart.js test.html package.json \
 
 RUN npm install && \
     npx webpack --mode production && \
-    rm -rf node_modules/
+    rm -rf node_modules/ && \
+    sed -i 's@__BASE_URL__@'"$base_url"'@' test.html
 
 EXPOSE 64567
 
