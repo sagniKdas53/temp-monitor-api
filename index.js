@@ -17,6 +17,7 @@ const json_header = {
     "Content-Type": "application/json; charset=utf-8"
 },
     javascript_t = "text/javascript; charset=utf-8",
+    text_t = "text/plain; charset=utf-8",
     staticAssets = {
         "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: javascript_t },
         "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
@@ -27,6 +28,7 @@ const json_header = {
 http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
+        //console.log(get);
         if (get === "" || get === "/") {
             fs.readFile("/sys/class/thermal/thermal_zone0/temp", 'utf8', (err, data) => {
                 if (err) {
@@ -47,7 +49,15 @@ http.createServer((req, res) => {
                     //res.end(JSON.stringify({ temp: (data / 1000).toFixed(2) }));
                 }
             });
-        } else {
+        } else if (get === "/ping") {
+            res.writeHead(200, {
+                "Access-Control-Allow-Origin": "*",
+                "Content-Type": text_t
+            });
+            res.write("pong");
+            res.end();
+        }
+        else {
             try {
                 res.writeHead(200, {
                     "Access-Control-Allow-Origin": "*",
