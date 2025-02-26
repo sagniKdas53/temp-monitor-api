@@ -1,128 +1,433 @@
 const http = require("http");
 const fs = require("fs");
 
-// Essentials
-const protocol = process.env.protocol || "http";
-const host = process.env.hostname || "localhost";
-const port = process.env.port || 64567;
-const url_base = process.env.base_url || "/temp";
-const max_retries = process.env.max_retries || 9;
-const scrape_interval = process.env.scrape_interval || 15000;
-var url, retries = 0, last_read_time = null, last_read_data = null;
-if (process.env.hide_ports) { url = `${protocol}://${host}${url_base}`; }
-else { url = `${protocol}://${host}:${port}${url_base}`; };
-if (__dirname == '/')
-    __dirname = '';
-const json_header = {
+// Configuration variables
+const CONFIG = {
+    protocol: process.env.protocol || "http",
+    host: process.env.hostname || "localhost",
+    port: process.env.port || 64567,
+    urlBase: process.env.base_url || "/temp",
+    maxRetries: parseInt(process.env.max_retries) || 9,
+    scrapeInterval: parseInt(process.env.scrape_interval) || 15000,
+    hidePorts: !!process.env.hide_ports,
+    tempFilePath: "/sys/class/thermal/thermal_zone0/temp",
+    retryDelay: 1000, // 1 second between retries
+    exitOnMaxRetries: true
+};
+
+// Build base URL
+const url = CONFIG.hidePorts
+    ? `${CONFIG.protocol}://${CONFIG.host}${CONFIG.urlBase}`
+    : `${CONFIG.protocol}://${CONFIG.host}:${CONFIG.port}${CONFIG.urlBase}`;
+
+// Cache storage
+const cache = {
+    lastReadTime: null,
+    lastReadData: null,
+    retries: 0
+};
+
+// Directory path handling
+const basePath = __dirname === '/' ? '' : __dirname;
+
+// Response headers
+const JSON_HEADER = {
     "Access-Control-Allow-Origin": "*",
     "Content-Type": "application/json; charset=utf-8"
-},
-    staticAssets = {
-        "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: "text/javascript; charset=utf-8" },
-        "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
-        "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
-        "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
-    },
-    readCpuTemp = () => {
-        return new Promise((resolve, reject) => {
-            if (last_read_time && last_read_data && Date.now() - last_read_time < scrape_interval) {
-                //console.log("Returning cached data");
-                resolve(last_read_data);
-                return;
-            }
-            fs.readFile("/sys/class/thermal/thermal_zone0/temp", "utf8", (err, data) => {
-                if (err) {
-                    //console.error("Error inside readCpuTemp when reading data: ", err, "Retries: ", retries);
-                    if (retries >= max_retries) {
-                        // Attempt to exit gracefully, if the reads fail `max_retries` times
-                        console.log("Max retries reached, exiting...");
-                        process.exit(1);
-                    }
-                    retries++;
-                    reject(err);
-                } else {
-                    retries = 0;
-                    const tempC = parseInt(data, 10) / 1000;
-                    last_read_data = tempC;
-                    last_read_time = Date.now();
-                    //console.log("Data read inside readCpuTemp successfully: ", tempC, "°C", "at", new Date().toISOString(), "Retries: ", retries);
-                    resolve(tempC);
-                }
-            });
-        });
-    };
+};
 
+// Static assets preloading
+const staticAssets = {
+    "/chart.js": {
+        obj: fs.readFileSync(basePath + "/dist/chart.js"),
+        type: "text/javascript; charset=utf-8"
+    },
+    "/test": {
+        obj: fs.readFileSync(basePath + "/test.html"),
+        type: "text/html; charset=utf-8"
+    },
+    "/favicon.ico": {
+        obj: fs.readFileSync(basePath + "/favicon.ico"),
+        type: "image/x-icon"
+    },
+    "/style.css": {
+        obj: fs.readFileSync(basePath + "/style.css"),
+        type: "text/css; charset=utf-8"
+    }
+};
+
+// Helper function to format logs in Grafana logfmt format
+const logfmt = (level, message, fields = {}) => {
+    // Start with log level and message
+    let logEntry = `level=${level} msg="${message}"`;
+
+    // Add timestamp in ISO format
+    logEntry += ` ts=${new Date().toISOString()}`;
+
+    // Add all other fields
+    for (const [key, value] of Object.entries(fields)) {
+        // Properly format different value types
+        if (typeof value === 'string') {
+            // Escape quotes in strings
+            logEntry += ` ${key}="${value.replace(/"/g, '\\"')}"`;
+        } else if (value instanceof Error) {
+            // Extract error details
+            logEntry += ` ${key}="${value.message.replace(/"/g, '\\"')}"`;
+            if (value.stack) {
+                logEntry += ` ${key}_stack="${value.stack.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+            }
+        } else if (value === null || value === undefined) {
+            logEntry += ` ${key}=null`;
+        } else {
+            logEntry += ` ${key}=${value}`;
+        }
+    }
+
+    return logEntry;
+};
+
+// Define log level functions
+const logger = {
+    info: (message, fields = {}) => {
+        console.log(logfmt('info', message, fields));
+    },
+    error: (message, fields = {}) => {
+        console.error(logfmt('error', message, fields));
+    },
+    warn: (message, fields = {}) => {
+        console.warn(logfmt('warn', message, fields));
+    },
+    debug: (message, fields = {}) => {
+        console.debug(logfmt('debug', message, fields));
+    }
+};
+
+// Read CPU temperature with proper error handling
+const readCpuTemp = () => {
+    return new Promise((resolve, reject) => {
+        // Return cached data if it's fresh enough
+        if (cache.lastReadTime &&
+            cache.lastReadData !== null &&
+            Date.now() - cache.lastReadTime < CONFIG.scrapeInterval) {
+            logger.debug("Using cached temperature data", {
+                temperature: cache.lastReadData,
+                cache_age_ms: Date.now() - cache.lastReadTime
+            });
+            resolve(cache.lastReadData);
+            return;
+        }
+
+        // Read temperature file
+        fs.readFile(CONFIG.tempFilePath, "utf8", (err, data) => {
+            if (err) {
+                cache.retries++;
+                logger.error("Failed to read temperature file", {
+                    error: err,
+                    retries: cache.retries,
+                    max_retries: CONFIG.maxRetries,
+                    file_path: CONFIG.tempFilePath
+                });
+
+                if (cache.retries >= CONFIG.maxRetries) {
+                    if (CONFIG.exitOnMaxRetries) {
+                        logger.error("Maximum retries reached, exiting process", {
+                            retries: cache.retries,
+                            max_retries: CONFIG.maxRetries
+                        });
+                        process.exit(1);
+                    } else {
+                        logger.warn("Maximum retries reached, returning last known value or null", {
+                            retries: cache.retries,
+                            max_retries: CONFIG.maxRetries,
+                            has_cached_data: cache.lastReadData !== null
+                        });
+                        // Return last known value if available, otherwise reject
+                        if (cache.lastReadData !== null) {
+                            resolve(cache.lastReadData);
+                        } else {
+                            reject(new Error("Failed to read temperature after maximum retries"));
+                        }
+                    }
+                } else {
+                    reject(err);
+                }
+            } else {
+                try {
+                    // Reset retry counter on success
+                    cache.retries = 0;
+
+                    // Parse temperature (convert to Celsius)
+                    const tempC = parseFloat((parseInt(data.trim(), 10) / 1000).toFixed(2));
+
+                    // Validate temperature value to ensure it's reasonable
+                    if (isNaN(tempC) || tempC < -100 || tempC > 150) {
+                        throw new Error(`Invalid temperature reading: ${data}`);
+                    }
+
+                    // Update cache
+                    cache.lastReadData = tempC;
+                    cache.lastReadTime = Date.now();
+
+                    logger.debug("Temperature reading successful", {
+                        temperature: tempC,
+                        unit: "celsius"
+                    });
+                    resolve(tempC);
+                } catch (parseError) {
+                    logger.error("Error parsing temperature data", {
+                        error: parseError,
+                        raw_data: data
+                    });
+                    reject(parseError);
+                }
+            }
+        });
+    });
+};
+
+// Exponential backoff retry function
+const retryWithBackoff = async (fn, maxRetries = CONFIG.maxRetries, initialDelay = CONFIG.retryDelay) => {
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            return await fn();
+        } catch (error) {
+            retries++;
+
+            if (retries >= maxRetries) {
+                throw error;
+            }
+
+            const delay = initialDelay * Math.pow(2, retries - 1);
+            logger.debug(`Retrying operation`, {
+                retry_count: retries,
+                max_retries: maxRetries,
+                delay_ms: delay
+            });
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+};
+
+// Schedule regular temperature checks
 setInterval(async () => {
     try {
         const tempC = await readCpuTemp();
-        console.log("Data read for setInterval successfully: ", tempC, "°C", "at", new Date().toISOString(), "Retries: ", retries);
+        logger.info("CPU temperature read", {
+            temperature: tempC,
+            unit: "celsius",
+            retries: cache.retries,
+            cache_hit: tempC === cache.lastReadData && cache.lastReadTime !== null && Date.now() - cache.lastReadTime < CONFIG.scrapeInterval
+        });
     } catch (err) {
-        console.error("Unhandled error in setInterval:", err, "Retries:", retries);
+        logger.error("Failed to read CPU temperature", {
+            error: err,
+            retries: cache.retries,
+            component: "temperature_monitor"
+        });
     }
-}, scrape_interval);
+}, CONFIG.scrapeInterval);
 
+// Create and start HTTP server
+const server = http.createServer((req, res) => {
+    const startTime = Date.now();
 
-http.createServer((req, res) => {
-    if (req.url.startsWith(url_base) && req.method === "GET") {
-        var get = req.url.replace(url_base, "");
-        //console.log("Requested path ", get);
-        if (get === "" || get === "/") {
-            readCpuTemp().then((tempC) => {
-                res.writeHead(200, json_header);
-                res.end(JSON.stringify({
-                    temp: tempC
-                }));
-            }).catch((err) => {
-                res.writeHead(500, json_header);
-                res.end(JSON.stringify({
-                    temp: null,
-                    error: err.toString()
-                }));
-            });
-        } else if (get === "/ping") {
-            res.writeHead(200, json_header);
+    // Log incoming request
+    logger.debug("Received HTTP request", {
+        method: req.method,
+        path: req.url,
+        remote_addr: req.socket.remoteAddress
+    });
+
+    if (req.url.startsWith(CONFIG.urlBase) && req.method === "GET") {
+        const path = req.url.replace(CONFIG.urlBase, "");
+
+        // Handle different endpoints
+        if (path === "" || path === "/") {
+            readCpuTemp()
+                .then((tempC) => {
+                    res.writeHead(200, JSON_HEADER);
+                    res.end(JSON.stringify({ temp: tempC }));
+
+                    logger.debug("API request completed", {
+                        path: "/",
+                        status: 200,
+                        duration_ms: Date.now() - startTime
+                    });
+                })
+                .catch((err) => {
+                    res.writeHead(500, JSON_HEADER);
+                    res.end(JSON.stringify({
+                        temp: null,
+                        error: err.toString()
+                    }));
+
+                    logger.error("Error handling API request", {
+                        path: "/",
+                        status: 500,
+                        error: err,
+                        duration_ms: Date.now() - startTime
+                    });
+                });
+        }
+        else if (path === "/ping") {
+            res.writeHead(200, JSON_HEADER);
             res.write(JSON.stringify({ "status": "UP" }));
             res.end();
-        } else if (get === "/metrics") {
-            readCpuTemp().then((tempC) => {
-                const metricsOutput = [
-                    '# HELP cpu_temperature Current CPU temperature in Celsius',
-                    '# TYPE cpu_temperature gauge',
-                    `cpu_temperature ${tempC}`
-                ].join('\n');
-                //console.log("Metrics: ", metricsOutput);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end(metricsOutput);
-            }).catch((err) => {
-                res.writeHead(500, json_header);
-                res.end(JSON.stringify({
-                    temp: null,
-                    error: err.toString()
-                }));
+
+            logger.debug("Health check completed", {
+                path: "/ping",
+                status: 200,
+                duration_ms: Date.now() - startTime
             });
+        }
+        else if (path === "/metrics") {
+            readCpuTemp()
+                .then((tempC) => {
+                    const metricsOutput = [
+                        '# HELP cpu_temperature Current CPU temperature in Celsius',
+                        '# TYPE cpu_temperature gauge',
+                        `cpu_temperature ${tempC}`
+                    ].join('\n');
+
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end(metricsOutput);
+
+                    logger.debug("Metrics request completed", {
+                        path: "/metrics",
+                        status: 200,
+                        temperature: tempC,
+                        duration_ms: Date.now() - startTime
+                    });
+                })
+                .catch((err) => {
+                    res.writeHead(500, JSON_HEADER);
+                    res.end(JSON.stringify({
+                        temp: null,
+                        error: err.toString()
+                    }));
+
+                    logger.error("Error handling metrics request", {
+                        path: "/metrics",
+                        status: 500,
+                        error: err,
+                        duration_ms: Date.now() - startTime
+                    });
+                });
         }
         else {
             try {
-                res.writeHead(200, {
-                    "Access-Control-Allow-Origin": "*",
-                    "Content-Type": staticAssets[get].type
-                });
-                res.write(staticAssets[get].obj);
-                res.end();
+                // Check if the path is in our staticAssets map
+                if (staticAssets[path]) {
+                    res.writeHead(200, {
+                        "Access-Control-Allow-Origin": "*",
+                        "Content-Type": staticAssets[path].type
+                    });
+                    res.write(staticAssets[path].obj);
+                    res.end();
+
+                    logger.debug("Static asset served", {
+                        path: path,
+                        status: 200,
+                        asset_type: staticAssets[path].type,
+                        duration_ms: Date.now() - startTime
+                    });
+                } else {
+                    res.writeHead(404, JSON_HEADER);
+                    res.end(JSON.stringify({ temp: null }));
+
+                    logger.warn("Resource not found", {
+                        path: path,
+                        status: 404,
+                        duration_ms: Date.now() - startTime
+                    });
+                }
             } catch (error) {
-                res.writeHead(404, json_header);
+                res.writeHead(500, JSON_HEADER);
                 res.end(JSON.stringify({
-                    temp: null
+                    temp: null,
+                    error: error.toString()
                 }));
+
+                logger.error("Server error serving static asset", {
+                    path: path,
+                    status: 500,
+                    error: error,
+                    duration_ms: Date.now() - startTime
+                });
             }
         }
     }
     else {
-        res.writeHead(405, json_header);
-        res.end(JSON.stringify({
-            temp: null
-        }));
+        res.writeHead(405, JSON_HEADER);
+        res.end(JSON.stringify({ temp: null }));
+
+        logger.warn("Method not allowed", {
+            method: req.method,
+            path: req.url,
+            status: 405,
+            duration_ms: Date.now() - startTime
+        });
     }
-}).listen(port, () => {
-    console.log(`Api Listening on ${url}`);
+});
+
+// Graceful shutdown handling
+const gracefulShutdown = (signal) => {
+    logger.info(`Received ${signal}, shutting down gracefully`, {
+        signal: signal
+    });
+
+    server.close(() => {
+        logger.info("HTTP server closed", {
+            shutdown_reason: signal
+        });
+        process.exit(0);
+    });
+
+    // Force close after 10s
+    setTimeout(() => {
+        logger.error("Forced shutdown after timeout", {
+            timeout_ms: 10000
+        });
+        process.exit(1);
+    }, 10000);
+};
+
+// Handle termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    logger.error("Uncaught exception", {
+        error: err
+    });
+
+    // Exit with error
+    process.exit(1);
+});
+
+// Start server
+server.listen(CONFIG.port, () => {
+    logger.info("Temperature monitoring API started", {
+        url: url,
+        port: CONFIG.port,
+        temp_path: CONFIG.tempFilePath,
+        interval_ms: CONFIG.scrapeInterval
+    });
+
+    // Perform initial read to verify everything works
+    readCpuTemp()
+        .then(temp => {
+            logger.info("Initial temperature reading successful", {
+                temperature: temp,
+                unit: "celsius"
+            });
+        })
+        .catch(err => {
+            logger.error("Initial temperature reading failed", {
+                error: err
+            });
+        });
 });
