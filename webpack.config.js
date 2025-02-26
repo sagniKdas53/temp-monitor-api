@@ -2,7 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 
 // For chart.js
-const chart_refresh_interval = process.env.chart_refresh_interval || 10000;
+const chart_refresh_interval = process.env.chart_refresh_interval || 15000;
 const chart_data_points = process.env.chart_data_points || 12;
 // Essentials
 const protocol = process.env.protocol || "http";
