@@ -1,5 +1,5 @@
-import { createServer } from "http";
-import { readFileSync, readFile } from "fs";
+const http = require("http");
+const fs = require("fs");
 
 // Essentials
 const protocol = process.env.protocol || "http";
@@ -18,10 +18,10 @@ const json_header = {
     "Content-Type": "application/json; charset=utf-8"
 },
     staticAssets = {
-        "/chart.js": { obj: readFileSync(__dirname + "/dist/chart.js"), type: "text/javascript; charset=utf-8" },
-        "/test": { obj: readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
-        "/favicon.ico": { obj: readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
-        "/style.css": { obj: readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
+        "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: "text/javascript; charset=utf-8" },
+        "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
+        "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
+        "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
     },
     readCpuTemp = () => {
         return new Promise((resolve, reject) => {
@@ -30,8 +30,9 @@ const json_header = {
                 resolve(last_read_data);
                 return;
             }
-            readFile("/sys/class/thermal/thermal_zone0/temp", "utf8", (err, data) => {
+            fs.readFile("/sys/class/thermal/thermal_zone0/tem", "utf8", (err, data) => {
                 if (err) {
+                    console.error("Error reading data: ", err);
                     if (retries == max_retries) {
                         // Attempt to exit gracefully, if the reads fail `max_retries` times
                         console.log("Max retries reached, exiting...");
@@ -44,16 +45,16 @@ const json_header = {
                     const tempC = parseInt(data, 10) / 1000;
                     last_read_data = tempC;
                     last_read_time = Date.now();
-                    console.log("Data read successfully: ", tempC);
+                    console.log("Data read successfully: ", tempC, "°C", "at", new Date().toISOString());
                     resolve(tempC);
                 }
             });
         });
     };
 
-setInterval(readCpuTemp, scrape_interval);
+//setInterval(readCpuTemp, scrape_interval);
 
-createServer((req, res) => {
+http.createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
         //console.log(get);
@@ -66,7 +67,7 @@ createServer((req, res) => {
             }).catch((err) => {
                 res.writeHead(500, json_header);
                 res.end(JSON.stringify({
-                    temp: "NA",
+                    temp: null,
                     error: err.toString()
                 }));
             });
@@ -76,7 +77,6 @@ createServer((req, res) => {
             res.end();
         } else if (get === "/metrics") {
             readCpuTemp().then((tempC) => {
-                res.writeHead(200, json_header);
                 const metricsOutput = [
                     '# HELP cpu_temperature Current CPU temperature in Celsius',
                     '# TYPE cpu_temperature gauge',
@@ -88,7 +88,7 @@ createServer((req, res) => {
             }).catch((err) => {
                 res.writeHead(500, json_header);
                 res.end(JSON.stringify({
-                    temp: "NA",
+                    temp: null,
                     error: err.toString()
                 }));
             });
@@ -104,7 +104,7 @@ createServer((req, res) => {
             } catch (error) {
                 res.writeHead(404, json_header);
                 res.end(JSON.stringify({
-                    temp: "NA"
+                    temp: null
                 }));
             }
         }
@@ -112,7 +112,7 @@ createServer((req, res) => {
     else {
         res.writeHead(405, json_header);
         res.end(JSON.stringify({
-            temp: "NA"
+            temp: null
         }));
     }
 }).listen(port, () => {
