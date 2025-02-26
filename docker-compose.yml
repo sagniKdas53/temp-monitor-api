@@ -17,11 +17,11 @@ services:
         - host=${HOSTNAME}
         - port=${PORT}
         - protocol=${PROTOCOL}
-        - interval=${INTERVAL}
+        - scrape_interval=${SCRAPE_INTERVAL}
         - base_url=${BASE_URL}
         - hide_ports=${HIDE_PORTS}
         - chart_data_points=${CHART_SIZE}
-        - chart_callback=${CHART_REFRESH}
+        - chart_refresh_interval=${CHART_REFRESH_INTERVAL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.temp-api.entrypoints=web,websecure"
@@ -34,7 +34,7 @@ services:
       - host=${HOSTNAME}
       - port=${PORT}
       - protocol=${PROTOCOL}
-      - interval=${INTERVAL}
+      - scrape_interval=${SCRAPE_INTERVAL}
       - base_url=${BASE_URL}
       - hide_ports=${HIDE_PORTS}
 

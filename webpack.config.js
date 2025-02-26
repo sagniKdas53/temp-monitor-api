@@ -2,7 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 
 // For chart.js
-const chart_callback = process.env.chart_callback || 10000;
+const chart_refresh_interval = process.env.chart_refresh_interval || 10000;
 const chart_data_points = process.env.chart_data_points || 12;
 // Essentials
 const protocol = process.env.protocol || "http";
@@ -34,7 +34,7 @@ module.exports = {
     new webpack.DefinePlugin({
       __URL__: JSON.stringify(url),
       __SIZE__: JSON.stringify(chart_data_points),
-      __INTERVAL__: JSON.stringify(chart_callback)
+      __INTERVAL__: JSON.stringify(chart_refresh_interval)
     })
   ]
 };

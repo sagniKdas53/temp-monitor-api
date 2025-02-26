@@ -3,11 +3,11 @@ FROM --platform=arm64 node:current-alpine3.17
 ARG host
 ARG port
 ARG protocol
-ARG interval
+ARG scrape_interval
 ARG base_url
 ARG hide_ports
 ARG chart_data_points
-ARG chart_callback
+ARG chart_refresh_interval
 
 WORKDIR /
 
