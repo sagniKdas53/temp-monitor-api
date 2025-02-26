@@ -1,5 +1,5 @@
-const http = require("http");
-const fs = require("fs");
+import { createServer } from "http";
+import { readFileSync, readFile } from "fs";
 
 // Essentials
 const protocol = process.env.protocol || "http";
@@ -16,21 +16,19 @@ const json_header = {
     "Access-Control-Allow-Origin": "*",
     "Content-Type": "application/json; charset=utf-8"
 },
-    javascript_t = "text/javascript; charset=utf-8",
-    text_t = "text/plain; charset=utf-8",
     staticAssets = {
-        "/chart.js": { obj: fs.readFileSync(__dirname + "/dist/chart.js"), type: javascript_t },
-        "/test": { obj: fs.readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
-        "/favicon.ico": { obj: fs.readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
-        "/style.css": { obj: fs.readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
+        "/chart.js": { obj: readFileSync(__dirname + "/dist/chart.js"), type: "text/javascript; charset=utf-8" },
+        "/test": { obj: readFileSync(__dirname + "/test.html"), type: "text/html; charset=utf-8" },
+        "/favicon.ico": { obj: readFileSync(__dirname + "/favicon.ico"), type: "image/x-icon" },
+        "/style.css": { obj: readFileSync(__dirname + "/style.css"), type: "text/css; charset=utf-8" }
     };
 
-http.createServer((req, res) => {
+createServer((req, res) => {
     if (req.url.startsWith(url_base) && req.method === "GET") {
         var get = req.url.replace(url_base, "");
         //console.log(get);
         if (get === "" || get === "/") {
-            fs.readFile("/sys/class/thermal/thermal_zone0/temp", 'utf8', (err, data) => {
+            readFile("/sys/class/thermal/thermal_zone0/temp", 'utf8', (err, data) => {
                 if (err) {
                     console.error("Error reading temp: " + err.message);
                     res.writeHead(500, json_header);
@@ -53,6 +51,8 @@ http.createServer((req, res) => {
             res.writeHead(200, json_header);
             res.write(JSON.stringify({ "res": "pong" }));
             res.end();
+        } else if (get === "/metrics") {
+            // Todo: Implement metrics endpoint compatible with Prometheus
         }
         else {
             try {
