@@ -71,12 +71,12 @@ const logfmt = (level, message, fields = {}) => {
         // Properly format different value types
         if (typeof value === 'string') {
             // Escape quotes in strings
-            logEntry += ` ${key}="${value.replace(/"/g, '\\"')}"`;
+            logEntry += ` ${key}="${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
         } else if (value instanceof Error) {
             // Extract error details
-            logEntry += ` ${key}="${value.message.replace(/"/g, '\\"')}"`;
+            logEntry += ` ${key}="${value.message.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
             if (value.stack) {
-                logEntry += ` ${key}_stack="${value.stack.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+                logEntry += ` ${key}_stack="${value.stack.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
             }
         } else if (value === null || value === undefined) {
             logEntry += ` ${key}=null`;
