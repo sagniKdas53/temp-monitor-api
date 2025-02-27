@@ -10,8 +10,10 @@ const CONFIG = {
     maxRetries: parseInt(process.env.max_retries) || 9,
     scrapeInterval: parseInt(process.env.scrape_interval) || 15000,
     hidePorts: !!process.env.hide_ports,
-    tempFilePath: "/sys/class/thermal/thermal_zone0/temp",
-    retryDelay: 1000, // 1 second between retries
+    logLevel: process.env.log_level || "debug",
+    PCHTempFilePath: "/sys/class/thermal/thermal_zone0/temp",
+    CPUTempFilePath: "/sys/class/thermal/thermal_zone2/temp",
+    tempFileEncoding: "utf8",
     exitOnMaxRetries: true
 };
 
@@ -87,18 +89,29 @@ const logfmt = (level, message, fields = {}) => {
 };
 
 // Define log level functions
+const logLevels = ["debug", "info", "warn", "error"];
+const currentLogLevelIndex = logLevels.indexOf(CONFIG.logLevel);
+
 const logger = {
-    info: (message, fields = {}) => {
-        console.log(logfmt('info', message, fields));
+    debug: (message, fields = {}) => {
+        if (currentLogLevelIndex <= logLevels.indexOf("debug")) {
+            console.debug(logfmt('debug', message, fields));
+        }
     },
-    error: (message, fields = {}) => {
-        console.error(logfmt('error', message, fields));
+    info: (message, fields = {}) => {
+        if (currentLogLevelIndex <= logLevels.indexOf("info")) {
+            console.log(logfmt('info', message, fields));
+        }
     },
     warn: (message, fields = {}) => {
-        console.warn(logfmt('warn', message, fields));
+        if (currentLogLevelIndex <= logLevels.indexOf("warn")) {
+            console.warn(logfmt('warn', message, fields));
+        }
     },
-    debug: (message, fields = {}) => {
-        console.debug(logfmt('debug', message, fields));
+    error: (message, fields = {}) => {
+        if (currentLogLevelIndex <= logLevels.indexOf("error")) {
+            console.error(logfmt('error', message, fields));
+        }
     }
 };
 
@@ -118,7 +131,7 @@ const readCpuTemp = () => {
         }
 
         // Read temperature file
-        fs.readFile(CONFIG.tempFilePath, "utf8", (err, data) => {
+        fs.readFile(CONFIG.CPUTempFilePath, CONFIG.tempFileEncoding, (err, data) => {
             if (err) {
                 cache.retries++;
                 logger.error("Failed to read temperature file", {
@@ -183,31 +196,6 @@ const readCpuTemp = () => {
             }
         });
     });
-};
-
-// Exponential backoff retry function
-const retryWithBackoff = async (fn, maxRetries = CONFIG.maxRetries, initialDelay = CONFIG.retryDelay) => {
-    let retries = 0;
-
-    while (retries < maxRetries) {
-        try {
-            return await fn();
-        } catch (error) {
-            retries++;
-
-            if (retries >= maxRetries) {
-                throw error;
-            }
-
-            const delay = initialDelay * Math.pow(2, retries - 1);
-            logger.debug(`Retrying operation`, {
-                retry_count: retries,
-                max_retries: maxRetries,
-                delay_ms: delay
-            });
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
 };
 
 // Schedule regular temperature checks
