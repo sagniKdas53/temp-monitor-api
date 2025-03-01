@@ -11,8 +11,7 @@ const CONFIG = {
     scrapeInterval: parseInt(process.env.scrape_interval) || 15000,
     hidePorts: !!process.env.hide_ports,
     logLevel: process.env.log_level || "debug",
-    PCHTempFilePath: "/sys/class/thermal/thermal_zone0/temp",
-    CPUTempFilePath: "/sys/class/thermal/thermal_zone2/temp",
+    tempFilePath: process.env.temp_file_path || "/sys/class/thermal/thermal_zone2/temp",
     tempFileEncoding: "utf8",
     exitOnMaxRetries: true
 };
@@ -131,7 +130,7 @@ const readCpuTemp = () => {
         }
 
         // Read temperature file
-        fs.readFile(CONFIG.CPUTempFilePath, CONFIG.tempFileEncoding, (err, data) => {
+        fs.readFile(CONFIG.tempFilePath, CONFIG.tempFileEncoding, (err, data) => {
             if (err) {
                 cache.retries++;
                 logger.error("Failed to read temperature file", {

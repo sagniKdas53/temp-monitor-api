@@ -4,7 +4,7 @@ services:
     container_name: temp-api
     image: purevert/temp-api:latest
     volumes:
-      - /sys/class/thermal/thermal_zone2/temp:/sys/class/thermal/thermal_zone2/temp:ro
+      - ${TEMP_FILE_PATH}:${TEMP_FILE_PATH}:ro
       - ./health-check-min.js:/healthcheck/health-check-min.js:ro
     ports:
       - ${PORT}:${PORT}
@@ -38,6 +38,7 @@ services:
       - base_url=${BASE_URL}
       - hide_ports=${HIDE_PORTS}
       - log_level=${LOG_LEVEL}
+      - temp_file_path=${TEMP_FILE_PATH}
 
 networks:
   revProxy-net:
