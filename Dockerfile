@@ -11,14 +11,14 @@ ARG chart_refresh_interval
 
 WORKDIR /
 
-COPY index.js chart.js test.html chart.html package.json \
+COPY index.js chart.js demo.html homarr.html package.json \
     webpack.config.js favicon.ico style.css health-check-min.js /
 
 RUN npm install && \
     npx webpack --mode production && \
     rm -rf node_modules/ && \
-    sed -i 's@__BASE_URL__@'"$base_url"'@' test.html && \
-    sed -i 's@__BASE_URL__@'"$base_url"'@' chart.html
+    sed -i 's@__BASE_URL__@'"$base_url"'@' demo.html && \
+    sed -i 's@__BASE_URL__@'"$base_url"'@' homarr.html
 
 EXPOSE 64567
 

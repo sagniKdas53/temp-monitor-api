@@ -5,7 +5,6 @@ services:
     image: purevert/temp-api:latest
     volumes:
       - ${TEMP_FILE_PATH}:${TEMP_FILE_PATH}:ro
-      - ./health-check-min.js:/healthcheck/health-check-min.js:ro
     ports:
       - ${PORT}:${PORT}
     networks:
