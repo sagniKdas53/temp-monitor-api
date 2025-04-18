@@ -44,7 +44,7 @@ const staticAssets = {
         type: "text/javascript; charset=utf-8"
     },
     "/chart": {
-        obj: fs.readFileSync(basePath + "/dist/chart.html"),
+        obj: fs.readFileSync(basePath + "/chart.html"),
         type: "text/html; charset=utf-8"
     },
     "/test": {
