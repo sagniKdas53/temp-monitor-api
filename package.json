@@ -1,23 +1,18 @@
 {
   "name": "temp-api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
     "build": "npx webpack",
-    "start": "npx webpack && node --watch index.js"
+    "dev": "npx webpack && node --watch index.js"
   },
-  "author": "",
+  "author": "Sagnik Das",
   "license": "ISC",
-  "description": "",
+  "description": "API to get temperature from reading the linux file /sys/class/thermal/thermal_zone2/temp",
   "dependencies": {
     "chart.js": "^4.4.8"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "jest": "^29.7.0",
     "webpack": "^5.99.5",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.1"
