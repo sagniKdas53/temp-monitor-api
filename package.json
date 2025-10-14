@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "API to get temperature from reading the linux file /sys/class/thermal/thermal_zone2/temp",
   "dependencies": {
-    "chart.js": "^4.5.0"
+    "chart.js": "^4.5.1"
   },
   "devDependencies": {
     "webpack": "^5.102.0",
