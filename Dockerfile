@@ -20,10 +20,10 @@ RUN npm ci
 
 # Copying rest of the source files
 COPY index.js chart.js demo.html \
-    webpack.config.js favicon.ico style.css health-check.js ./
+    build.js favicon.ico style.css health-check.js ./
 
 # Build and cleanup
-RUN npx webpack --mode production && \
+RUN node build.js && \
     rm -rf node_modules/ && \
     sed -i 's@__BASE_URL__@'"$base_url"'@' demo.html
 

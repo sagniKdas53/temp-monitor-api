@@ -3,8 +3,8 @@
   "version": "1.1.0",
   "main": "index.js",
   "scripts": {
-    "build": "npx webpack",
-    "dev": "npx webpack && node --watch index.js"
+    "build": "node build.js",
+    "dev": "node build.js && node --watch index.js"
   },
   "author": "Sagnik Das",
   "license": "ISC",
@@ -13,8 +13,6 @@
     "chart.js": "^4.5.1"
   },
   "devDependencies": {
-    "webpack": "^5.105.4",
-    "webpack-cli": "^7.0.2",
-    "webpack-dev-server": "^5.2.3"
+    "esbuild": "^0.25.12"
   }
 }
