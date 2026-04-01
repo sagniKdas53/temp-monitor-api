@@ -205,24 +205,39 @@ const readCpuTemp = () => {
     });
 };
 
-// Schedule regular temperature checks
-setInterval(async () => {
-    try {
-        const tempC = await readCpuTemp();
-        logger.info("CPU temperature read", {
-            temperature: tempC,
-            unit: "celsius",
-            retries: cache.retries,
-            cache_hit: tempC === cache.lastReadData && cache.lastReadTime !== null && Date.now() - cache.lastReadTime < CONFIG.scrapeInterval
-        });
-    } catch (err) {
-        logger.error("Failed to read CPU temperature", {
-            error: err,
-            retries: cache.retries,
-            component: "temperature_monitor"
-        });
-    }
-}, CONFIG.scrapeInterval);
+// Export functions for testing
+module.exports = {
+    CONFIG,
+    cache,
+    readCpuTemp,
+    server: null, // placeholder
+    logger
+};
+
+// Polling interval
+let pollingInterval;
+
+// Start server and interval ONLY if run directly
+if (require.main === module) {
+    // Schedule regular temperature checks
+    pollingInterval = setInterval(async () => {
+        try {
+            const tempC = await readCpuTemp();
+            logger.info("CPU temperature read", {
+                temperature: tempC,
+                unit: "celsius",
+                retries: cache.retries,
+                cache_hit: tempC === cache.lastReadData && cache.lastReadTime !== null && Date.now() - cache.lastReadTime < CONFIG.scrapeInterval
+            });
+        } catch (err) {
+            logger.error("Failed to read CPU temperature", {
+                error: err,
+                retries: cache.retries,
+                component: "temperature_monitor"
+            });
+        }
+    }, CONFIG.scrapeInterval);
+}
 
 // Create and start HTTP server
 const server = http.createServer((req, res) => {
@@ -411,25 +426,30 @@ process.on('uncaughtException', (err) => {
 });
 
 // Start server
-server.listen(CONFIG.port, () => {
-    logger.info("Temperature monitoring API started", {
-        url: url,
-        port: CONFIG.port,
-        temp_path: CONFIG.tempFilePath,
-        interval_ms: CONFIG.scrapeInterval
-    });
-
-    // Perform initial read to verify everything works
-    readCpuTemp()
-        .then(temp => {
-            logger.info("Initial temperature reading successful", {
-                temperature: temp,
-                unit: "celsius"
-            });
-        })
-        .catch(err => {
-            logger.error("Initial temperature reading failed", {
-                error: err
-            });
+if (require.main === module) {
+    server.listen(CONFIG.port, () => {
+        logger.info("Temperature monitoring API started", {
+            url: url,
+            port: CONFIG.port,
+            temp_path: CONFIG.tempFilePath,
+            interval_ms: CONFIG.scrapeInterval
         });
-});
+
+        // Perform initial read to verify everything works
+        readCpuTemp()
+            .then(temp => {
+                logger.info("Initial temperature reading successful", {
+                    temperature: temp,
+                    unit: "celsius"
+                });
+            })
+            .catch(err => {
+                logger.error("Initial temperature reading failed", {
+                    error: err
+                });
+            });
+    });
+}
+
+// Update export with server
+module.exports.server = server;
