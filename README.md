@@ -73,6 +73,35 @@ If you are developing on macOS or Windows, the default Linux thermal path won't 
     temp_file_path=./mock_temp npm run dev
     ```
 
+## Dashy Integration
+
+This project is designed to be easily integrated into [Dashy](https://dashy.to/) as a custom widget. You can use the `embed` widget type to display the real-time temperature graph directly on your dashboard.
+
+### Example Dashy Configuration
+
+Add the following to your Dashy `conf.yml`:
+
+```yaml
+- type: embed
+  options:
+    css: >-
+      .white { color: white; font-weight: bold; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
+    html: >-
+      <div class="white">Temperature:<span id="value"></span>°C</div>
+      <br><br>
+      <div><canvas id="tempChart"></canvas></div>
+    scriptSrc: https://your-api-url/temp/chart.js
+```
+
+> [!TIP]
+> Ensure the `scriptSrc` points to the correct public URL of your API's `/chart.js` endpoint.
+
+## Homarr Integration
+
+For [Homarr](https://homarr.dev/) users, you can use the `iframe` widget and point it to the `/temp/homarr.html` endpoint provided by this API.
+
+---
+
 ## API Reference
 
 - `GET /temp`: Returns current temperature in JSON.
