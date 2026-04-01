@@ -32,8 +32,16 @@ const cache = {
 const basePath = __dirname === '/' ? '' : __dirname;
 
 // Response headers
+const ALLOWED_ORIGINS = process.env.hostname ? `${CONFIG.protocol}://${process.env.hostname}` : "*";
+
+const COMMON_HEADERS = {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN"
+};
+
 const JSON_HEADER = {
-    "Access-Control-Allow-Origin": "*",
+    ...COMMON_HEADERS,
     "Content-Type": "application/json; charset=utf-8"
 };
 
@@ -227,6 +235,13 @@ const server = http.createServer((req, res) => {
         remote_addr: req.socket.remoteAddress
     });
 
+    // Basic URL validation
+    if (req.url.length > 256) {
+        res.writeHead(414, JSON_HEADER);
+        res.end(JSON.stringify({ error: "URI Too Long" }));
+        return;
+    }
+
     if (req.url.startsWith(CONFIG.urlBase) && req.method === "GET") {
         const path = req.url.replace(CONFIG.urlBase, "");
 
@@ -247,7 +262,7 @@ const server = http.createServer((req, res) => {
                     res.writeHead(500, JSON_HEADER);
                     res.end(JSON.stringify({
                         temp: null,
-                        error: err.toString()
+                        error: "Internal server error"
                     }));
 
                     logger.error("Error handling API request", {
@@ -292,7 +307,7 @@ const server = http.createServer((req, res) => {
                     res.writeHead(500, JSON_HEADER);
                     res.end(JSON.stringify({
                         temp: null,
-                        error: err.toString()
+                        error: "Internal server error"
                     }));
 
                     logger.error("Error handling metrics request", {
@@ -308,7 +323,7 @@ const server = http.createServer((req, res) => {
                 // Check if the path is in our staticAssets map
                 if (staticAssets[path]) {
                     res.writeHead(200, {
-                        "Access-Control-Allow-Origin": "*",
+                        ...COMMON_HEADERS,
                         "Content-Type": staticAssets[path].type
                     });
                     res.write(staticAssets[path].obj);
@@ -334,7 +349,7 @@ const server = http.createServer((req, res) => {
                 res.writeHead(500, JSON_HEADER);
                 res.end(JSON.stringify({
                     temp: null,
-                    error: error.toString()
+                    error: "Internal server error"
                 }));
 
                 logger.error("Server error serving static asset", {

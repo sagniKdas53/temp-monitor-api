@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+dist
+.env
+health-check-min.js
+README.md
+dashy-example-conf.yml
+homarr.html
