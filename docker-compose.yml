@@ -2,7 +2,7 @@ version: "3"
 services:
   temp-api:
     container_name: temp-api
-    image: purevert/temp-api:latest
+    image: purevert/temp-api:local
     volumes:
       - ${TEMP_FILE_PATH}:${TEMP_FILE_PATH}:ro
     ports:
