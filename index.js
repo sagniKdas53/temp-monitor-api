@@ -288,6 +288,22 @@ const server = http.createServer((req, res) => {
                     });
                 });
         }
+        else if (path === "/config") {
+            // Runtime config for the frontend chart — avoids baking deployment
+            // details into the image at build time
+            res.writeHead(200, JSON_HEADER);
+            res.end(JSON.stringify({
+                url: url,
+                size: parseInt(process.env.chart_data_points) || 12,
+                interval: parseInt(process.env.chart_refresh_interval) || 15000
+            }));
+
+            logger.debug("Config request completed", {
+                path: "/config",
+                status: 200,
+                duration_ms: Date.now() - startTime
+            });
+        }
         else if (path === "/ping") {
             res.writeHead(200, JSON_HEADER);
             res.write(JSON.stringify({ "status": "UP" }));

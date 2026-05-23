@@ -5,6 +5,7 @@ Chart.register(
     PointElement,
     LineElement,
 );
+
 // Temperature graph
 const data = {
     labels: [],
@@ -45,24 +46,46 @@ const config = {
 
 const chart = new Chart(document.getElementById('tempChart'), config);
 
-function graphTemp() {
-    fetch(__URL__)
-        .then(res => res.json())
-        .then(temp => {
-            const currentTime = new Date();
-            const temperature = temp.temp;
-            const reading = { time: currentTime, temperature: temperature };
-            data.labels.push(currentTime.toLocaleString(undefined, { minute: 'numeric', second: 'numeric' }));
-            data.datasets[0].data.push(temperature);
-            if (data.labels.length > __SIZE__) {
-                data.labels.shift();
-                data.datasets[0].data.shift();
-            }
-            chart.update();
-            document.getElementById('value').innerHTML = temperature;
-        });
-};
+// Fetch runtime config from /config endpoint (served by index.js).
+// This replaces the build-time defines (__URL__, __SIZE__, __INTERVAL__)
+// that previously required deployment-specific build args baked into the image.
+async function init() {
+    let apiUrl, size, interval;
 
-graphTemp();
+    try {
+        // The config endpoint is relative to the page's base URL
+        const resp = await fetch('./config');
+        if (!resp.ok) throw new Error(`config fetch failed: ${resp.status}`);
+        const cfg = await resp.json();
+        apiUrl = cfg.url;
+        size = cfg.size;
+        interval = cfg.interval;
+    } catch (e) {
+        console.error('Failed to load runtime config, using defaults', e);
+        apiUrl = '/temp';
+        size = 12;
+        interval = 15000;
+    }
 
-setInterval(graphTemp, __INTERVAL__);
+    function graphTemp() {
+        fetch(apiUrl)
+            .then(res => res.json())
+            .then(temp => {
+                const currentTime = new Date();
+                const temperature = temp.temp;
+                data.labels.push(currentTime.toLocaleString(undefined, { minute: 'numeric', second: 'numeric' }));
+                data.datasets[0].data.push(temperature);
+                if (data.labels.length > size) {
+                    data.labels.shift();
+                    data.datasets[0].data.shift();
+                }
+                chart.update();
+                document.getElementById('value').innerHTML = temperature;
+            });
+    }
+
+    graphTemp();
+    setInterval(graphTemp, interval);
+}
+
+init();

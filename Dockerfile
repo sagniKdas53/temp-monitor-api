@@ -1,14 +1,5 @@
 FROM node:lts-alpine
 
-ARG host
-ARG port
-ARG protocol
-ARG scrape_interval
-ARG base_url
-ARG hide_ports
-ARG chart_data_points
-ARG chart_refresh_interval
-
 # Setting working directory
 WORKDIR /app
 
@@ -22,10 +13,9 @@ RUN npm ci
 COPY index.js chart.js demo.html \
     build.js favicon.ico style.css health-check.js ./
 
-# Build and cleanup
-RUN node build.js && \
-    rm -rf node_modules/ && \
-    sed -i 's@__BASE_URL__@'"$base_url"'@' demo.html
+# Bundle the frontend JS (no deployment-specific args needed;
+# runtime config is served by the /config endpoint in index.js)
+RUN node build.js && rm -rf node_modules/
 
 # Expose default port
 EXPOSE 64567
