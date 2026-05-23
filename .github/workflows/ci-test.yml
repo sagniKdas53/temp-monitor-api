@@ -1,23 +1,29 @@
-name: PR Check
+name: Run Tests
 
 on:
+  push:
+    branches:
+      - master
+      - main
   pull_request:
-    branches: [ "master", "main" ]
+    branches:
+      - master
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify PR
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
