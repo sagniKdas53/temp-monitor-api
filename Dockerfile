@@ -10,7 +10,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # Copying rest of the source files
-COPY index.js chart.js demo.html \
+COPY index.js config.js chart.js demo.html \
     build.js favicon.ico style.css health-check.js ./
 
 # Bundle the frontend JS (no deployment-specific args needed;

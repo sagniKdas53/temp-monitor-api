@@ -1,25 +1,14 @@
 const http = require("http");
 const fs = require("fs");
 
-// Configuration variables
-const CONFIG = {
-    protocol: process.env.protocol || "http",
-    host: process.env.hostname || "localhost",
-    port: process.env.port || 64567,
-    urlBase: process.env.base_url || "/temp",
-    maxRetries: parseInt(process.env.max_retries) || 9,
-    scrapeInterval: parseInt(process.env.scrape_interval) || 15000,
-    hidePorts: !!process.env.hide_ports,
-    logLevel: process.env.log_level || "debug",
-    tempFilePath: process.env.temp_file_path || "/sys/class/thermal/thermal_zone2/temp",
-    tempFileEncoding: "utf8",
-    exitOnMaxRetries: true
-};
+const { parseConfig } = require("./config.js");
 
-// Build base URL
-const url = CONFIG.hidePorts
-    ? `${CONFIG.protocol}://${CONFIG.host}${CONFIG.urlBase}`
-    : `${CONFIG.protocol}://${CONFIG.host}:${CONFIG.port}${CONFIG.urlBase}`;
+// Configuration variables (see config.js and the README for the env vars)
+const { config: CONFIG, warnings: configWarnings } = parseConfig(process.env);
+CONFIG.tempFilePath = CONFIG.tempFilePath || "/sys/class/thermal/thermal_zone2/temp";
+
+// Public base URL of the API
+const url = CONFIG.url;
 
 // Cache storage
 const cache = {
@@ -32,7 +21,7 @@ const cache = {
 const basePath = __dirname === '/' ? '' : __dirname;
 
 // Response headers
-const ALLOWED_ORIGINS = process.env.hostname ? `${CONFIG.protocol}://${process.env.hostname}` : "*";
+const ALLOWED_ORIGINS = CONFIG.corsAllowedOrigins[0];
 
 const COMMON_HEADERS = {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
@@ -121,6 +110,11 @@ const logger = {
         }
     }
 };
+
+// Surface invalid settings instead of silently using defaults
+for (const warning of configWarnings) {
+    logger.warn("Invalid configuration value, using default", { detail: warning });
+}
 
 // Read CPU temperature with proper error handling
 const readCpuTemp = () => {
@@ -294,8 +288,8 @@ const server = http.createServer((req, res) => {
             res.writeHead(200, JSON_HEADER);
             res.end(JSON.stringify({
                 url: url,
-                size: parseInt(process.env.chart_data_points) || 12,
-                interval: parseInt(process.env.chart_refresh_interval) || 15000
+                size: CONFIG.chartDataPoints,
+                interval: CONFIG.chartRefreshInterval
             }));
 
             logger.debug("Config request completed", {
