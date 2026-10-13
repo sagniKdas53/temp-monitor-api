@@ -5,14 +5,31 @@ on:
     branches:
       - master
       - main
+    # Version tags produce the semver image tags configured below
+    tags:
+      - 'v*'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+
+# A newer push supersedes an older one, so :latest can't be overwritten by
+# an older commit finishing last
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  test:
+    name: Tests
+    uses: ./.github/workflows/ci-test.yml
+
   publish:
     name: Build and Push to GHCR
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,8 +1,9 @@
-version: "3"
 services:
   temp-api:
     container_name: temp-api
     image: purevert/temp-api:local
+    build:
+      context: .
     volumes:
       - ${TEMP_FILE_PATH}:${TEMP_FILE_PATH}:ro
     ports:
@@ -10,27 +11,18 @@ services:
     networks:
       - revProxy-net
     restart: unless-stopped
-    build:
-      context: .
-      args:
-        - host=${HOSTNAME}
-        - port=${PORT}
-        - protocol=${PROTOCOL}
-        - scrape_interval=${SCRAPE_INTERVAL}
-        - base_url=${BASE_URL}
-        - hide_ports=${HIDE_PORTS}
-        - chart_data_points=${CHART_SIZE}
-        - chart_refresh_interval=${CHART_REFRESH_INTERVAL}
+    # API_HOSTNAME is preferred: many shells export HOSTNAME, and a shell
+    # variable overrides .env, which would silently change the Traefik rule.
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.temp-api.entrypoints=web,websecure"
-      - "traefik.http.routers.temp-api.rule=Host(`${HOSTNAME}`) && PathPrefix(`${BASE_URL}`)"
+      - "traefik.http.routers.temp-api.rule=Host(`${API_HOSTNAME:-${HOSTNAME}}`) && PathPrefix(`${BASE_URL}`)"
       - "traefik.http.routers.temp-api.tls=true"
       - "traefik.http.routers.temp-api.tls.certresolver=tailsolver"
-      - "traefik.http.routers.temp-api.tls.domains[0].main=${HOSTNAME}"
+      - "traefik.http.routers.temp-api.tls.domains[0].main=${API_HOSTNAME:-${HOSTNAME}}"
       - "autoheal.enable=true"
     environment:
-      - host=${HOSTNAME}
+      - hostname=${API_HOSTNAME:-${HOSTNAME}}
       - port=${PORT}
       - protocol=${PROTOCOL}
       - scrape_interval=${SCRAPE_INTERVAL}
@@ -38,6 +30,11 @@ services:
       - hide_ports=${HIDE_PORTS}
       - log_level=${LOG_LEVEL}
       - temp_file_path=${TEMP_FILE_PATH}
+      - chart_data_points=${CHART_SIZE}
+      - chart_refresh_interval=${CHART_REFRESH_INTERVAL}
+      # Compose previously never delivered the hostname, so CORS was "*";
+      # keep that unless you set CORS_ALLOWED_ORIGINS (e.g. your Dashy origin).
+      - cors_allowed_origins=${CORS_ALLOWED_ORIGINS:-*}
 
 networks:
   revProxy-net:

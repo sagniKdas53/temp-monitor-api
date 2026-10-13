@@ -7,7 +7,7 @@ body {
   font-size: 10vh;
 }
 
-#canvas-container {
+.canvas-container {
   width: 100%;
   text-align: center;
 }
@@ -24,7 +24,7 @@ canvas {
   margin: 0 auto;
 }
 
-.content.item {
+.content .item {
   align-items: center;
   align-content: center;
 }
