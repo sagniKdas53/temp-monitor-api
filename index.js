@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -10,43 +11,6 @@ const DEFAULT_THERMAL_ROOT = "/sys/class/thermal";
 
 // Public base URL of the API
 const url = CONFIG.url;
-
-// Directory path handling
-const basePath = __dirname === '/' ? '' : __dirname;
-
-// Response headers
-const ALLOWED_ORIGINS = CONFIG.corsAllowedOrigins[0];
-
-const COMMON_HEADERS = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "SAMEORIGIN"
-};
-
-const JSON_HEADER = {
-    ...COMMON_HEADERS,
-    "Content-Type": "application/json; charset=utf-8"
-};
-
-// Static assets preloading
-const staticAssets = {
-    "/chart.js": {
-        obj: fs.readFileSync(basePath + "/dist/chart.js"),
-        type: "text/javascript; charset=utf-8"
-    },
-    "/demo": {
-        obj: fs.readFileSync(basePath + "/demo.html"),
-        type: "text/html; charset=utf-8"
-    },
-    "/favicon.ico": {
-        obj: fs.readFileSync(basePath + "/favicon.ico"),
-        type: "image/x-icon"
-    },
-    "/style.css": {
-        obj: fs.readFileSync(basePath + "/style.css"),
-        type: "text/css; charset=utf-8"
-    }
-};
 
 // Helper function to format logs in Grafana logfmt format
 const escapeLogValue = (value) => value
@@ -335,171 +299,234 @@ const stopPolling = () => {
     pollTimer = null;
 };
 
-// Create and start HTTP server
-const server = http.createServer((req, res) => {
+// ---------------------------------------------------------------------------
+// HTTP
+// ---------------------------------------------------------------------------
+
+const ALLOWED_METHODS = "GET, HEAD, OPTIONS";
+const MAX_URL_LENGTH = 256;
+
+// CORS: one configured origin (or "*") is always sent, as before. With several,
+// the request's Origin is echoed only when it is in the list.
+let corsOrigins = CONFIG.corsAllowedOrigins;
+const setCorsOrigins = (origins) => {
+    corsOrigins = origins;
+};
+
+const corsHeaders = (req) => {
+    if (corsOrigins.length === 1) {
+        return { "Access-Control-Allow-Origin": corsOrigins[0] };
+    }
+    const headers = { "Vary": "Origin" };
+    if (req.headers.origin && corsOrigins.includes(req.headers.origin)) {
+        headers["Access-Control-Allow-Origin"] = req.headers.origin;
+    }
+    return headers;
+};
+
+// Every response goes through here so CORS and security headers are uniform,
+// including on errors. Dashboard pages are meant to be iframed (Homarr), so
+// they skip X-Frame-Options; they have no state-changing UI to clickjack.
+const send = (req, res, status, body, headers = {}, { frameable = false } = {}) => {
+    res.writeHead(status, {
+        ...corsHeaders(req),
+        "X-Content-Type-Options": "nosniff",
+        ...(frameable ? {} : { "X-Frame-Options": "SAMEORIGIN" }),
+        ...headers
+    });
+    res.end(body);
+};
+
+const sendJson = (req, res, status, payload, headers = {}) => {
+    send(req, res, status, JSON.stringify(payload), {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        ...headers
+    });
+};
+
+const sendServerError = (req, res, err, message) => {
+    sendJson(req, res, 500, { temp: null, error: "Internal server error" });
+    logger.error(message, { path: req.url, status: 500, error: err });
+};
+
+// Static assets, read once at startup. A missing file no longer crashes the
+// server at require time: the API keeps working and the asset returns 503.
+const STATIC_FILES = [
+    { route: "/chart.js", file: "dist/chart.js", type: "text/javascript; charset=utf-8", hint: "run `npm run build` to create dist/chart.js" },
+    { route: "/demo", file: "demo.html", type: "text/html; charset=utf-8", frameable: true },
+    { route: "/homarr.html", file: "homarr.html", type: "text/html; charset=utf-8", frameable: true },
+    { route: "/favicon.ico", file: "favicon.ico", type: "image/x-icon" },
+    { route: "/style.css", file: "style.css", type: "text/css; charset=utf-8" }
+];
+
+const loadStaticAssets = (dir = __dirname, logError = logger.error) => {
+    const assets = new Map();
+    for (const spec of STATIC_FILES) {
+        const filePath = path.join(dir, spec.file);
+        const hint = spec.hint || `${spec.file} is missing from the installation`;
+        let body = null;
+        let etag = null;
+        try {
+            body = fs.readFileSync(filePath);
+            etag = `"${crypto.createHash("sha1").update(body).digest("base64url")}"`;
+        } catch (err) {
+            logError("Static asset could not be loaded and will return 503", {
+                file: filePath,
+                error: err,
+                hint
+            });
+        }
+        assets.set(spec.route, { ...spec, hint, body, etag });
+    }
+    return assets;
+};
+
+const staticAssets = loadStaticAssets();
+
+const serveAsset = (req, res, route) => {
+    const asset = staticAssets.get(route);
+    if (asset.body === null) {
+        sendJson(req, res, 503, { temp: null, error: `Static asset unavailable: ${asset.hint}` });
+        return;
+    }
+    const headers = {
+        "Content-Type": asset.type,
+        "Cache-Control": "no-cache",
+        "ETag": asset.etag
+    };
+    const ifNoneMatch = req.headers["if-none-match"];
+    if (ifNoneMatch && ifNoneMatch.split(",").map((tag) => tag.trim()).includes(asset.etag)) {
+        send(req, res, 304, undefined, headers, { frameable: asset.frameable });
+        return;
+    }
+    send(req, res, 200, asset.body, headers, { frameable: asset.frameable });
+};
+
+const metricsBody = (tempC) => [
+    "# HELP cpu_temperature Current CPU temperature in Celsius (deprecated alias of cpu_temperature_celsius)",
+    "# TYPE cpu_temperature gauge",
+    `cpu_temperature ${tempC}`,
+    "# HELP cpu_temperature_celsius Current CPU temperature in degrees Celsius",
+    "# TYPE cpu_temperature_celsius gauge",
+    `cpu_temperature_celsius ${tempC}`,
+    // The text exposition format requires a trailing newline
+    ""
+].join("\n");
+
+const apiRoutes = new Map([
+    ["", (req, res) => {
+        readCpuTemp()
+            .then((tempC) => sendJson(req, res, 200, { temp: tempC }))
+            .catch((err) => sendServerError(req, res, err, "Error handling API request"));
+    }],
+    ["/config", (req, res) => {
+        // Runtime config for the frontend chart — avoids baking deployment
+        // details into the image at build time
+        sendJson(req, res, 200, {
+            url: url,
+            size: CONFIG.chartDataPoints,
+            interval: CONFIG.chartRefreshInterval
+        });
+    }],
+    ["/ping", (req, res) => {
+        sendJson(req, res, 200, { "status": "UP" });
+    }],
+    ["/metrics", (req, res) => {
+        readCpuTemp()
+            .then((tempC) => send(req, res, 200, metricsBody(tempC), {
+                "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+                "Cache-Control": "no-store"
+            }))
+            .catch((err) => sendServerError(req, res, err, "Error handling metrics request"));
+    }]
+]);
+
+// Path only: drops the query string/fragment; accepts absolute-form targets
+const requestPath = (rawUrl) => {
+    if (rawUrl.startsWith("/")) {
+        return rawUrl.split(/[?#]/, 1)[0];
+    }
+    try {
+        return new URL(rawUrl).pathname;
+    } catch {
+        return null;
+    }
+};
+
+// Map a request path to a handler, or null for 404. Trailing slashes are
+// ignored; lookups use Maps so "/__proto__" and friends can't match.
+const resolveRoute = (pathname) => {
+    const base = CONFIG.urlBase;
+    let route;
+    if (pathname === base) {
+        route = "";
+    } else if (pathname.startsWith(`${base}/`)) {
+        route = pathname.slice(base.length).replace(/\/+$/, "");
+    } else {
+        return null;
+    }
+    if (apiRoutes.has(route)) {
+        return apiRoutes.get(route);
+    }
+    if (staticAssets.has(route)) {
+        return (req, res) => serveAsset(req, res, route);
+    }
+    return null;
+};
+
+const handleRequest = (req, res) => {
     const startTime = Date.now();
 
-    // Log incoming request
-    logger.debug("Received HTTP request", {
-        method: req.method,
-        path: req.url,
-        remote_addr: req.socket.remoteAddress
+    res.on("finish", () => {
+        logger.debug("HTTP request completed", {
+            method: req.method,
+            path: req.url,
+            status: res.statusCode,
+            remote_addr: req.socket.remoteAddress,
+            duration_ms: Date.now() - startTime
+        });
     });
 
     // Basic URL validation
-    if (req.url.length > 256) {
-        res.writeHead(414, JSON_HEADER);
-        res.end(JSON.stringify({ error: "URI Too Long" }));
+    if (req.url.length > MAX_URL_LENGTH) {
+        sendJson(req, res, 414, { error: "URI Too Long" });
         return;
     }
 
-    if (req.url.startsWith(CONFIG.urlBase) && req.method === "GET") {
-        const path = req.url.replace(CONFIG.urlBase, "");
-
-        // Handle different endpoints
-        if (path === "" || path === "/") {
-            readCpuTemp()
-                .then((tempC) => {
-                    res.writeHead(200, JSON_HEADER);
-                    res.end(JSON.stringify({ temp: tempC }));
-
-                    logger.debug("API request completed", {
-                        path: "/",
-                        status: 200,
-                        duration_ms: Date.now() - startTime
-                    });
-                })
-                .catch((err) => {
-                    res.writeHead(500, JSON_HEADER);
-                    res.end(JSON.stringify({
-                        temp: null,
-                        error: "Internal server error"
-                    }));
-
-                    logger.error("Error handling API request", {
-                        path: "/",
-                        status: 500,
-                        error: err,
-                        duration_ms: Date.now() - startTime
-                    });
-                });
-        }
-        else if (path === "/config") {
-            // Runtime config for the frontend chart — avoids baking deployment
-            // details into the image at build time
-            res.writeHead(200, JSON_HEADER);
-            res.end(JSON.stringify({
-                url: url,
-                size: CONFIG.chartDataPoints,
-                interval: CONFIG.chartRefreshInterval
-            }));
-
-            logger.debug("Config request completed", {
-                path: "/config",
-                status: 200,
-                duration_ms: Date.now() - startTime
-            });
-        }
-        else if (path === "/ping") {
-            res.writeHead(200, JSON_HEADER);
-            res.write(JSON.stringify({ "status": "UP" }));
-            res.end();
-
-            logger.debug("Health check completed", {
-                path: "/ping",
-                status: 200,
-                duration_ms: Date.now() - startTime
-            });
-        }
-        else if (path === "/metrics") {
-            readCpuTemp()
-                .then((tempC) => {
-                    const metricsOutput = [
-                        '# HELP cpu_temperature Current CPU temperature in Celsius',
-                        '# TYPE cpu_temperature gauge',
-                        `cpu_temperature ${tempC}`
-                    ].join('\n');
-
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end(metricsOutput);
-
-                    logger.debug("Metrics request completed", {
-                        path: "/metrics",
-                        status: 200,
-                        temperature: tempC,
-                        duration_ms: Date.now() - startTime
-                    });
-                })
-                .catch((err) => {
-                    res.writeHead(500, JSON_HEADER);
-                    res.end(JSON.stringify({
-                        temp: null,
-                        error: "Internal server error"
-                    }));
-
-                    logger.error("Error handling metrics request", {
-                        path: "/metrics",
-                        status: 500,
-                        error: err,
-                        duration_ms: Date.now() - startTime
-                    });
-                });
-        }
-        else {
-            try {
-                // Check if the path is in our staticAssets map
-                if (staticAssets[path]) {
-                    res.writeHead(200, {
-                        ...COMMON_HEADERS,
-                        "Content-Type": staticAssets[path].type
-                    });
-                    res.write(staticAssets[path].obj);
-                    res.end();
-
-                    logger.debug("Static asset served", {
-                        path: path,
-                        status: 200,
-                        asset_type: staticAssets[path].type,
-                        duration_ms: Date.now() - startTime
-                    });
-                } else {
-                    res.writeHead(404, JSON_HEADER);
-                    res.end(JSON.stringify({ temp: null }));
-
-                    logger.warn("Resource not found", {
-                        path: path,
-                        status: 404,
-                        duration_ms: Date.now() - startTime
-                    });
-                }
-            } catch (error) {
-                res.writeHead(500, JSON_HEADER);
-                res.end(JSON.stringify({
-                    temp: null,
-                    error: "Internal server error"
-                }));
-
-                logger.error("Server error serving static asset", {
-                    path: path,
-                    status: 500,
-                    error: error,
-                    duration_ms: Date.now() - startTime
-                });
-            }
-        }
+    const pathname = requestPath(req.url);
+    const handler = pathname === null ? null : resolveRoute(pathname);
+    if (!handler) {
+        sendJson(req, res, 404, { temp: null, error: "Not Found" });
+        logger.warn("Resource not found", { method: req.method, path: req.url, status: 404 });
+        return;
     }
-    else {
-        res.writeHead(405, JSON_HEADER);
-        res.end(JSON.stringify({ temp: null }));
 
-        logger.warn("Method not allowed", {
-            method: req.method,
-            path: req.url,
-            status: 405,
-            duration_ms: Date.now() - startTime
+    if (req.method === "OPTIONS") {
+        send(req, res, 204, undefined, {
+            "Allow": ALLOWED_METHODS,
+            "Access-Control-Allow-Methods": ALLOWED_METHODS,
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "600"
         });
+        return;
     }
-});
+
+    if (req.method !== "GET" && req.method !== "HEAD") {
+        sendJson(req, res, 405, { temp: null, error: "Method Not Allowed" }, { "Allow": ALLOWED_METHODS });
+        logger.warn("Method not allowed", { method: req.method, path: req.url, status: 405 });
+        return;
+    }
+
+    try {
+        handler(req, res);
+    } catch (err) {
+        sendServerError(req, res, err, "Unhandled error while serving request");
+    }
+};
+
+// Create HTTP server
+const server = http.createServer(handleRequest);
 
 // Graceful shutdown handling
 let shuttingDown = false;
@@ -589,6 +616,9 @@ module.exports = {
     lifecycle,
     logfmt,
     logger,
+    loadStaticAssets,
+    staticAssets,
+    setCorsOrigins,
     server
 };
 

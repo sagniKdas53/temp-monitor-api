@@ -1,10 +1,18 @@
-import { Chart, LinearScale, LineElement, PointElement } from 'chart.js/auto';
+import {
+    Chart, CategoryScale, LinearScale, LineController, LineElement, PointElement, Tooltip
+} from 'chart.js';
 
-Chart.register(
-    LinearScale,
-    PointElement,
-    LineElement,
-);
+// Register only what this line chart uses (chart.js/auto bundles everything)
+Chart.register(CategoryScale, LinearScale, LineController, LineElement, PointElement, Tooltip);
+
+const DEFAULT_SIZE = 12;
+const DEFAULT_INTERVAL = 15000;
+
+// Resolve the API relative to this script's own URL, not the embedding page:
+// in a Dashy embed the page is Dashy, so './config' would hit Dashy itself.
+// document.currentScript is only set while the script first executes.
+const scriptUrl = (document.currentScript && document.currentScript.src) || window.location.href;
+const apiBase = new URL('./', scriptUrl);
 
 // Temperature graph
 const data = {
@@ -46,42 +54,54 @@ const config = {
 
 const chart = new Chart(document.getElementById('tempChart'), config);
 
-// Fetch runtime config from /config endpoint (served by index.js).
-// This replaces the build-time defines (__URL__, __SIZE__, __INTERVAL__)
-// that previously required deployment-specific build args baked into the image.
-async function init() {
-    let apiUrl, size, interval;
+const positiveInt = (value, fallback) =>
+    (Number.isInteger(value) && value > 0 ? value : fallback);
 
+// Fetch runtime config from the /config endpoint served by index.js.
+// The API URL itself is derived from the script URL (above): the server's
+// configured `url` can't know how the browser actually reached it.
+async function loadConfig() {
     try {
-        // The config endpoint is relative to the page's base URL
-        const resp = await fetch('./config');
+        const resp = await fetch(new URL('config', apiBase));
         if (!resp.ok) throw new Error(`config fetch failed: ${resp.status}`);
         const cfg = await resp.json();
-        apiUrl = cfg.url;
-        size = cfg.size;
-        interval = cfg.interval;
+        return {
+            size: positiveInt(cfg.size, DEFAULT_SIZE),
+            interval: positiveInt(cfg.interval, DEFAULT_INTERVAL)
+        };
     } catch (e) {
         console.error('Failed to load runtime config, using defaults', e);
-        apiUrl = '/temp';
-        size = 12;
-        interval = 15000;
+        return { size: DEFAULT_SIZE, interval: DEFAULT_INTERVAL };
     }
+}
 
-    function graphTemp() {
-        fetch(apiUrl)
-            .then(res => res.json())
-            .then(temp => {
-                const currentTime = new Date();
-                const temperature = temp.temp;
-                data.labels.push(currentTime.toLocaleString(undefined, { minute: 'numeric', second: 'numeric' }));
-                data.datasets[0].data.push(temperature);
-                if (data.labels.length > size) {
-                    data.labels.shift();
-                    data.datasets[0].data.shift();
-                }
-                chart.update();
-                document.getElementById('value').innerHTML = temperature;
-            });
+async function init() {
+    const { size, interval } = await loadConfig();
+    const valueEl = document.getElementById('value');
+
+    async function graphTemp() {
+        let temperature = null;
+        try {
+            const res = await fetch(apiBase);
+            const body = await res.json();
+            if (typeof body.temp === 'number') {
+                temperature = body.temp;
+            }
+        } catch (e) {
+            console.error('Failed to fetch temperature', e);
+        }
+        // null leaves a gap in the line for failed polls
+        const currentTime = new Date();
+        data.labels.push(currentTime.toLocaleString(undefined, { minute: 'numeric', second: 'numeric' }));
+        data.datasets[0].data.push(temperature);
+        while (data.labels.length > size) {
+            data.labels.shift();
+            data.datasets[0].data.shift();
+        }
+        chart.update();
+        if (valueEl) {
+            valueEl.textContent = temperature === null ? ' --' : temperature;
+        }
     }
 
     graphTemp();
