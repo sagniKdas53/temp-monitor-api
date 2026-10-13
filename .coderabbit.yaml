@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!package-lock.json"
+    - "!dist/**"
+    - "!favicon.ico"
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        This is a small Node.js (plain `http`, no runtime dependencies) server that
+        polls a Linux thermal zone file and serves JSON, a Chart.js dashboard,
+        /ping and Prometheus /metrics, shipped as a multi-arch Docker image.
+        Existing users depend on: the lower-case env var names, the endpoint
+        paths under base_url, the JSON response shapes ({"temp": ...},
+        {"status": "UP"}, /config fields), the cpu_temperature metric and the
+        Docker image contract (port 64567, CMD, HEALTHCHECK, /app layout).
+        Flag any change that breaks these and ask for a backwards-compatible
+        alternative.
+    - path: "config.js"
+      instructions: |
+        Config parsing: every env var must be validated (integers strictly, no
+        `parseInt(x) || default` that turns an explicit 0 into the default, no
+        NaN leaking through), invalid values must produce a warning and fall
+        back to the documented default, and the README table must match.
+        Check port, scrape_interval, max_retries and chart settings bounds.
+    - path: "index.js"
+      instructions: |
+        Review for:
+        - CORS: headers must be correct on every route, including errors,
+          404/405 and OPTIONS; the "*" fallback when hostname is unset is
+          intentional for backwards compatibility.
+        - Startup: static files are read once; a missing file must not crash
+          the API and must produce a clear message.
+        - Sensor reading: missing/unreadable file, non-numeric or out-of-range
+          content, retry counting (only consecutive failures; request bursts
+          must not exhaust max_retries), and how errors surface in the API
+          and /metrics.
+        - Polling: no overlapping reads, timers cleaned up, graceful shutdown
+          on SIGTERM/SIGINT (node runs as PID 1 in Docker).
+        - Routing: malformed URLs, query strings, trailing slashes, HEAD and
+          unknown methods, 404 vs 405, path traversal, content types and
+          caching headers.
+        - Prometheus output: valid text exposition format (HELP/TYPE lines,
+          trailing newline), units in metric names.
+    - path: "chart.js"
+      instructions: |
+        Browser bundle. The API must be resolved relative to the script URL
+        (it is embedded cross-origin in Dashy). Never write API data with
+        innerHTML; handle fetch failures without unhandled rejections.
+    - path: "Dockerfile"
+      instructions: |
+        Check: non-root user, layer caching, multi-stage build (no
+        node_modules in the runtime image), exec-form CMD/HEALTHCHECK,
+        .dockerignore coverage, image size, and that every runtime file
+        index.js reads is copied.
+    - path: ".github/workflows/**"
+      instructions: |
+        Check action versions exist, least-privilege permissions, that
+        publishing only happens after tests pass, and that the Node version
+        tested matches the runtime image.
+    - path: "test/**"
+      instructions: |
+        Tests must assert on the failure path (assert.rejects, not assertions
+        inside catch), restore mocks and shared CONFIG, and cover the focus
+        areas above. Flag missing tests for new behaviour.
+chat:
+  auto_reply: true
