@@ -62,10 +62,23 @@ const toOrigin = (value) => {
     }
 };
 
-const parseOrigins = (raw) => raw
+// Each entry must be "*" or an http(s) origin; invalid entries are dropped
+// with a warning ("dashy.example.com" without a scheme would never match).
+const parseOrigins = (raw, warnings) => raw
     .split(",")
-    .map((origin) => origin.trim().replace(/\/+$/, ""))
-    .filter((origin) => origin !== "");
+    .map((origin) => origin.trim())
+    .filter((origin) => origin !== "")
+    .flatMap((origin) => {
+        if (origin === "*") return ["*"];
+        try {
+            const parsed = new URL(origin);
+            if (parsed.protocol === "http:" || parsed.protocol === "https:") return [parsed.origin];
+        } catch {
+            // Reported below
+        }
+        warnings.push(`cors_allowed_origins entry "${origin}" is not a valid http(s) origin; ignoring it`);
+        return [];
+    });
 
 const parseConfig = (env = process.env) => {
     const warnings = [];
@@ -82,7 +95,7 @@ const parseConfig = (env = process.env) => {
     // "*" without a hostname and the public origin (now including the port) with one.
     let corsAllowedOrigins = isUnset(env.cors_allowed_origins)
         ? []
-        : parseOrigins(env.cors_allowed_origins);
+        : parseOrigins(env.cors_allowed_origins, warnings);
     if (corsAllowedOrigins.length === 0) {
         corsAllowedOrigins = isUnset(env.hostname) ? ["*"] : [toOrigin(origin)];
     } else if (corsAllowedOrigins.includes("*")) {

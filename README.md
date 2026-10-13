@@ -19,7 +19,7 @@ A lightweight Node.js API that monitors CPU temperature by reading Linux thermal
 
 ## Configuration
 
-The following environment variables configure the application. Names are **lower-case** (Docker sets an upper-case `HOSTNAME` to the container ID, so upper-case names are deliberately not read). Invalid values are logged as a warning at startup and the default is used.
+The following environment variables configure the application. Names are **lower-case** (Docker sets an upper-case `HOSTNAME` to the container ID, so upper-case names are deliberately not read). Invalid values are logged as a warning at startup and the default is used. One exception keeps old deployments working: an unrecognised non-empty `hide_ports` value (e.g. `y`) is still treated as true, as it was before booleans were parsed.
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
@@ -35,7 +35,7 @@ The following environment variables configure the application. Names are **lower
 | `log_level` | `debug`, `info`, `warn` or `error` (case-insensitive) | `debug` |
 | `chart_data_points` | Number of points shown in the chart | `12` |
 | `chart_refresh_interval` | How often the chart polls the API, in ms | `15000` |
-| `cors_allowed_origins` | Comma-separated list of origins allowed to call the API from a browser, or `*` | `*` if `hostname` is unset, otherwise the API's own origin (`protocol://hostname[:port]`) |
+| `cors_allowed_origins` | Comma-separated list of origins (`scheme://host[:port]`) allowed to call the API from a browser, or `*`. Invalid entries are ignored with a warning | `*` if `hostname` is unset, otherwise the API's own origin (`protocol://hostname[:port]`) |
 
 > [!NOTE]
 > To embed the chart in a dashboard served from a different origin (e.g. Dashy), that origin must be allowed by CORS: either leave `hostname` unset, or set `cors_allowed_origins` to the dashboard's origin (or `*`).
@@ -61,10 +61,10 @@ The following environment variables configure the application. Names are **lower
 
 ```bash
 docker build -t temp-monitor-api .
-docker run -p 64567:64567 \
-  -v /sys/class/thermal/thermal_zone2/temp:/sys/class/thermal/thermal_zone2/temp:ro \
-  temp-monitor-api
+docker run -p 64567:64567 temp-monitor-api
 ```
+
+Docker mounts the host's `/sys` read-only inside containers, so every thermal zone (and automatic zone selection) is visible without a volume. Set `temp_file_path` to pick a specific zone.
 
 Or use `docker-compose.yml` together with a `.env` file based on `.env.example`. Compose reads `API_HOSTNAME` (falling back to `HOSTNAME`, which many shells export and which would otherwise override `.env`).
 

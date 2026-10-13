@@ -54,7 +54,7 @@ Each finding was reproduced (command or test noted) or, where reproduction isn't
 | M12 | `index.js:51` (old) | A missing `dist/chart.js` crashed the whole API at `require` time with a raw `ENOENT` stack trace (reproduced). | Assets load at startup with a clear log line (`hint: run npm run build…`); a missing asset returns 503 with that hint while the API keeps working. `npm test` now runs the build first (`pretest`). |
 | M13 | `index.js:325` (old) | `/metrics` had no trailing newline; Prometheus' `expfmt` text parser rejects the body (`unexpected end of input stream`). Content type lacked the format version. | Trailing newline, `text/plain; version=0.0.4; charset=utf-8`. Test parses every line. |
 | M14 | `index.js:425-441` (old) | Signal and `uncaughtException` handlers were registered at import, so inside the test runner an assertion failure called `process.exit(1)` and hid which test failed. Shutdown wasn't idempotent and never stopped the poller. | Handlers registered only when run directly (`start()`); idempotent shutdown, stops polling, closes idle sockets; `EADDRINUSE` logged and exits 1. Child-process tests in `test/process.test.js`. |
-| M15 | `test/*.test.js` | Error-path tests asserted only inside `catch`, so they passed when the function resolved (mutation-tested: removing validation still gave 6/6). `/metrics` test matched the HELP line, not the sample. Mocks and `CONFIG` mutations leaked between tests. No tests for `/config`, `/temp`, 404/405, CORS, HEAD, shutdown. | Rewritten with `assert.rejects`, `t.mock`, CONFIG restored after each test; 67 tests now. |
+| M15 | `test/*.test.js` | Error-path tests asserted only inside `catch`, so they passed when the function resolved (mutation-tested: removing validation still gave 6/6). `/metrics` test matched the HELP line, not the sample. Mocks and `CONFIG` mutations leaked between tests. No tests for `/config`, `/temp`, 404/405, CORS, HEAD, shutdown. | Rewritten with `assert.rejects`, `t.mock`, CONFIG restored after each test; 69 tests now. |
 | M16 | `Dockerfile:10-18` (old) | `rm -rf node_modules` ran in a later layer than `npm ci`, so 27.5 MB of `node_modules`/npm cache still shipped (verified with `docker history`). | Multi-stage build. Image 283 MB → 242 MB; app layers ~28 MB → ~0.24 MB. |
 | M17 | `.github/workflows/ci-publish.yml:14` | Publish didn't depend on tests: a commit failing its tests was still pushed as `:latest` (both workflows start in parallel on push). | Publish calls the test workflow (`workflow_call`) and `needs` it. |
 | M18 | `.github/workflows/ci-test.yml:28` | CI tested on Node 20 (EOL 2026-04-30) while the image runs Node 24. | Matrix on Node 22 and 24; image pinned to `node:24-alpine`. |
@@ -108,7 +108,7 @@ These would break existing users (env names, endpoints, response shapes, image c
 
 | Metric | Before | After |
 | :- | :- | :- |
-| Tests | 6 (2 files) | 67 (4 files) |
+| Tests | 6 (2 files) | 69 (4 files) |
 | `index.js` coverage (lines / branches / functions) | 63.91% / 59.46% / 42.11% | 94.59% / ~91% / 91.94% |
 | `config.js` / `health-check.js` coverage | n/a / not run | 98.26% / 100% lines |
 | hadolint | 2 findings (exit 1) | clean |

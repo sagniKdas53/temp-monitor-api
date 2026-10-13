@@ -136,3 +136,19 @@ test('exit_on_max_retries can be disabled', () => {
 test('temp_file_path is kept verbatim when set', () => {
     assert.strictEqual(parseConfig({ temp_file_path: '/x/temp' }).config.tempFilePath, '/x/temp');
 });
+
+test('cors_allowed_origins entries are validated and canonicalised', () => {
+    const { config, warnings } = parseConfig({
+        cors_allowed_origins: 'dashy.example.com, https://A.example:443, ftp://x.example, http://b.example:8080/path'
+    });
+    assert.deepStrictEqual(config.corsAllowedOrigins, ['https://a.example', 'http://b.example:8080']);
+    assert.strictEqual(warnings.length, 2);
+    assert.match(warnings[0], /dashy\.example\.com/);
+    assert.match(warnings[1], /ftp:\/\/x\.example/);
+});
+
+test('cors_allowed_origins with no valid entry falls back to the derived default', () => {
+    const { config, warnings } = parseConfig({ cors_allowed_origins: 'not-an-origin' });
+    assert.deepStrictEqual(config.corsAllowedOrigins, ['*']);
+    assert.strictEqual(warnings.length, 1);
+});
