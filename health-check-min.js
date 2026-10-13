@@ -1,1 +1,0 @@
-"use strict";Promise.race([new Promise((t,e)=>{setTimeout(()=>e(Error("Timeout occurred")),25e3)}),fetch("http://localhost:64567/temp/ping")]).then(async t=>{200===t.status?t.json().then(t=>{"UP"===t.status?process.exit(0):process.exit(1)}).catch(t=>{process.exit(1)}):process.exit(1)}).catch(t=>{process.exit(1)});

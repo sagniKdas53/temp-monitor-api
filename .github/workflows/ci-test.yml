@@ -10,14 +10,21 @@ on:
       - master
       - main
   workflow_dispatch:
+  # Called by the publish workflow so images are only pushed after CI passes
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   test:
-    name: Test
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24 matches the node:24-alpine runtime image
+        node-version: ['22', '24']
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -25,7 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install Dependencies
@@ -34,8 +41,38 @@ jobs:
       - name: Build Project
         run: npm run build
 
-      - name: Run Tests
-        run: npm test
+      - name: Run Tests with Coverage
+        run: node --test --experimental-test-coverage test/*.test.js
 
       - name: Security Audit
         run: npm audit
+
+  lint:
+    name: Lint Dockerfile and workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint"
+
+  docker:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Build Image
+        run: docker build -t temp-api:ci .
+
+      - name: Smoke Test
+        run: scripts/smoke-test.sh temp-api:ci

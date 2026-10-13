@@ -1,8 +1,13 @@
 .git
 .github
+.coderabbit.yaml
 node_modules
 dist
+coverage
+test
+scripts
 .env
-health-check-min.js
-README.md
+.env.example
+*.md
+docker-compose.yml
 dashy-example-conf.yml

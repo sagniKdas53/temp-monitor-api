@@ -1,6 +1,6 @@
-FROM node:lts-alpine
+# Build stage: install dev dependencies and bundle the frontend
+FROM node:24-alpine AS build
 
-# Setting working directory
 WORKDIR /app
 
 # Copying package files first for better caching
@@ -9,23 +9,31 @@ COPY package.json package-lock.json ./
 # Deterministic dependency install
 RUN npm ci
 
-# Copying rest of the source files
-COPY index.js config.js chart.js demo.html homarr.html \
-    build.js favicon.ico style.css health-check.js ./
-
 # Bundle the frontend JS (no deployment-specific args needed;
 # runtime config is served by the /config endpoint in index.js)
-RUN node build.js && rm -rf node_modules/
+COPY build.js chart.js ./
+RUN node build.js
+
+# Runtime stage: no node_modules or npm cache, only what the server reads
+FROM node:24-alpine
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+COPY index.js config.js health-check.js \
+    demo.html homarr.html favicon.ico style.css ./
+COPY --from=build /app/dist ./dist
 
 # Expose default port
 EXPOSE 64567
 
-# Runtime user - node is already present in Alpine images
-USER node
+# Runtime user: "node" (uid/gid 1000) is already present in the image
+USER 1000:1000
 
-# Start command
-CMD [ "node", "index.js" ]
-
-# Health check - updated to be relative to WORKDIR
+# Health check (health-check.js times out after 5s, below --timeout)
 HEALTHCHECK --interval=90s --timeout=10s --start-period=10s --retries=3 \
-    CMD node health-check.js || exit 1
+    CMD ["node", "health-check.js"]
+
+# Start command (exec form, so node is PID 1 and receives SIGTERM)
+CMD [ "node", "index.js" ]

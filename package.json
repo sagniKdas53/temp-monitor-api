@@ -5,15 +5,18 @@
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js && node --watch index.js",
-    "test": "node --test test/*.test.js"
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.js",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage test/*.test.js"
   },
   "author": "Sagnik Das",
   "license": "ISC",
-  "description": "API to get temperature from reading the linux file /sys/class/thermal/thermal_zone2/temp",
-  "dependencies": {
-    "chart.js": "^4.5.1"
+  "description": "API that reads the CPU temperature from a Linux thermal zone file and serves it as JSON, Prometheus metrics and a Chart.js dashboard",
+  "engines": {
+    "node": ">=22"
   },
   "devDependencies": {
+    "chart.js": "^4.5.1",
     "esbuild": "^0.28.2"
   }
 }
