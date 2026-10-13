@@ -3,7 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const { parseConfig } = require("./config.js");
+const { parseConfig, LOG_LEVELS } = require("./config.js");
 
 // Configuration variables (see config.js and the README for the env vars)
 const { config: CONFIG, warnings: configWarnings } = parseConfig(process.env);
@@ -48,7 +48,7 @@ const logfmt = (level, message, fields = {}) => {
 };
 
 // Define log level functions
-const logLevels = ["debug", "info", "warn", "error"];
+const logLevels = LOG_LEVELS;
 const currentLogLevelIndex = logLevels.indexOf(CONFIG.logLevel);
 
 const logger = {
@@ -76,7 +76,7 @@ const logger = {
 
 // Surface invalid settings instead of silently using defaults
 for (const warning of configWarnings) {
-    logger.warn("Invalid configuration value, using default", { detail: warning });
+    logger.warn("Invalid configuration value", { detail: warning });
 }
 
 // Process-level side effects, replaceable in tests
